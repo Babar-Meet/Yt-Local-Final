@@ -1,3 +1,5 @@
+const { formatFileSize } = require('./utils/format');
+
 require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
@@ -171,13 +173,7 @@ app.get('/api/video/:filename', (req, res) => {
   }
 });
 
-// Helper function to format file size
-function formatFileSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
-}
+
 
 // Stream video endpoint (for seeking)
 app.get('/api/stream/:filename', (req, res) => {
