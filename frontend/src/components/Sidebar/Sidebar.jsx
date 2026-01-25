@@ -43,6 +43,7 @@ const Sidebar = ({ size }) => {
   const moreOptions = [
     { icon: <Clock size={24} />, label: 'History', path: '/history' },
     { icon: <ThumbsUp size={24} />, label: 'Recycle Bin', path: '/recycle-bin' },
+    { icon: <Settings size={24} />, label: 'Videoplayer Settings', path: '/VideoplayerSettings' },
     { icon: <Settings size={24} />, label: 'Settings', path: '/settings' },
   ]
 

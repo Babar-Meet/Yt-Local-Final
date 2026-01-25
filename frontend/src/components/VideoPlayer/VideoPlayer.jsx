@@ -10,9 +10,12 @@ import {
   SkipForward,
   Settings
 } from 'lucide-react'
+import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
 import './VideoPlayer.css'
 
 const VideoPlayer = ({ video }) => {
+  const { settings } = useVideoPlayerSettings()
+  
   const videoRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolume] = useState(1)
@@ -28,6 +31,7 @@ const VideoPlayer = ({ video }) => {
   const spacebarPressedRef = useRef(false)
   const originalPlaybackRateRef = useRef(1)
   const isTempSpeedActiveRef = useRef(false)
+  const controlsTimeoutRef = useRef(null)
 
   useEffect(() => {
     const videoElement = videoRef.current
@@ -49,67 +53,55 @@ const VideoPlayer = ({ video }) => {
     }
   }, [])
 
-  // Keyboard shortcuts - global event listener
+  // Keyboard shortcuts with dynamic key bindings
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Skip if user is typing in input or textarea
       const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
       if (isInput) return
 
-      const key = e.key.toLowerCase()
+      const key = e.key
       
-      // Spacebar - handle hold for 2x speed
-      if (key === ' ' || key === 'spacebar') {
+      // Handle spacebar based on mode
+      if (key === ' ' && settings.spacebarMode === 'playpause') {
         e.preventDefault()
         e.stopPropagation()
         
         if (spacebarPressedRef.current) return
-        
         spacebarPressedRef.current = true
         
-        // Start timer for hold detection (1 second)
-        spacebarHoldTimerRef.current = setTimeout(() => {
-          if (spacebarPressedRef.current && videoRef.current) {
-            activateTempSpeed()
-          }
-        }, 1000) // 1 second
+        if (settings.tempSpeedEnabled) {
+          spacebarHoldTimerRef.current = setTimeout(() => {
+            if (spacebarPressedRef.current && videoRef.current) {
+              activateTempSpeed()
+            }
+          }, settings.tempSpeedHoldDelay)
+        }
         return
       }
 
-      switch(key) {
-        // Play/Pause
-        case 'k':
+      // Map keys to actions
+      switch(key.toLowerCase()) {
+        case settings.playPauseKey.toLowerCase():
           e.preventDefault()
           togglePlay()
           break
           
-        case 'arrowleft':
+        case settings.forwardSkipKey.toLowerCase():
           e.preventDefault()
-          skip(-5)
+          skip(settings.forwardSkipAmount)
           break
           
-        case 'arrowright':
+        case settings.backwardSkipKey.toLowerCase():
           e.preventDefault()
-          skip(5)
+          skip(settings.backwardSkipAmount)
           break
           
-        case 'arrowup':
-          e.preventDefault()
-          changeVolume(volume + 0.1)
-          break
-          
-        case 'arrowdown':
-          e.preventDefault()
-          changeVolume(volume - 0.1)
-          break
-          
-        case 'm':
+        case settings.muteKey.toLowerCase():
           e.preventDefault()
           toggleMute()
           break
           
-        // Frame navigation
-        case ',':
+        case settings.frameBackKey.toLowerCase():
           e.preventDefault()
           if (videoRef.current) {
             if (isPlaying) {
@@ -120,7 +112,7 @@ const VideoPlayer = ({ video }) => {
           }
           break
           
-        case '.':
+        case settings.frameForwardKey.toLowerCase():
           e.preventDefault()
           if (videoRef.current) {
             if (isPlaying) {
@@ -131,46 +123,53 @@ const VideoPlayer = ({ video }) => {
           }
           break
           
-        // Playback speed decrease
-        case '[':
-        case '<':
+        case settings.speedDownKey.toLowerCase():
           e.preventDefault()
           decreasePlaybackRate()
           break
           
-        // Playback speed increase
-        case ']':
-        case '>':
+        case settings.speedUpKey.toLowerCase():
           e.preventDefault()
           increasePlaybackRate()
           break
           
-        // Fullscreen
-        case 'f':
+        case settings.fullscreenKey.toLowerCase():
           e.preventDefault()
           toggleFullscreen()
           break
       }
+
+      // Handle arrow keys
+      if (key === settings.leftArrowKey) {
+        e.preventDefault()
+        skip(settings.leftArrowSkip)
+      } else if (key === settings.rightArrowKey) {
+        e.preventDefault()
+        skip(settings.rightArrowSkip)
+      } else if (key === settings.volumeUpKey) {
+        e.preventDefault()
+        changeVolume(volume + 0.1)
+      } else if (key === settings.volumeDownKey) {
+        e.preventDefault()
+        changeVolume(volume - 0.1)
+      }
     }
 
     const handleKeyUp = (e) => {
-      const key = e.key.toLowerCase()
+      const key = e.key
       
-      if (key === ' ' || key === 'spacebar') {
+      if (key === ' ' && settings.spacebarMode === 'playpause') {
         e.preventDefault()
         e.stopPropagation()
         
-        // Clear the hold timer
         if (spacebarHoldTimerRef.current) {
           clearTimeout(spacebarHoldTimerRef.current)
           spacebarHoldTimerRef.current = null
         }
         
-        // If temporary speed was active, deactivate it
         if (isTempSpeedActiveRef.current) {
           deactivateTempSpeed()
         } else if (spacebarPressedRef.current) {
-          // If spacebar was pressed briefly, toggle play/pause
           togglePlay()
         }
         
@@ -178,7 +177,6 @@ const VideoPlayer = ({ video }) => {
       }
     }
 
-    // Use capture phase and passive: false for better control
     document.addEventListener('keydown', handleKeyDown, { capture: true })
     document.addEventListener('keyup', handleKeyUp, { capture: true })
 
@@ -190,17 +188,31 @@ const VideoPlayer = ({ video }) => {
         clearTimeout(spacebarHoldTimerRef.current)
       }
     }
-  }, [volume, playbackRate, showControls, isFullscreen, isPlaying])
+  }, [volume, playbackRate, showControls, isFullscreen, isPlaying, settings])
 
+  // Auto-hide controls
   useEffect(() => {
-    let timeoutId
-    if (showControls && isPlaying) {
-      timeoutId = setTimeout(() => {
-        setShowControls(false)
-      }, 3000)
+    if (!settings.controlsAutoHide) {
+      setShowControls(true)
+      return
     }
-    return () => clearTimeout(timeoutId)
-  }, [showControls, isPlaying])
+
+    if (showControls && isPlaying) {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current)
+      }
+      
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false)
+      }, settings.autoHideDelay)
+    }
+
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current)
+      }
+    }
+  }, [showControls, isPlaying, settings.controlsAutoHide, settings.autoHideDelay])
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -278,22 +290,22 @@ const VideoPlayer = ({ video }) => {
     }
   }
 
-  // Frame-by-frame navigation (assuming 30fps)
+  // Frame-by-frame navigation with dynamic step
   const previousFrame = () => {
     if (videoRef.current) {
-      videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - (1/30))
+      videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - settings.frameStepSeconds)
     }
   }
 
   const nextFrame = () => {
     if (videoRef.current) {
-      videoRef.current.currentTime += (1/30)
+      videoRef.current.currentTime += settings.frameStepSeconds
     }
   }
 
-  // Playback rate controls
+  // Playback rate controls with dynamic settings
   const decreasePlaybackRate = () => {
-    const newRate = Math.max(0.25, playbackRate - 0.25)
+    const newRate = Math.max(settings.minSpeed, playbackRate - settings.normalSpeedIncrement)
     setPlaybackRate(newRate)
     if (videoRef.current && !isTempSpeedActiveRef.current) {
       videoRef.current.playbackRate = newRate
@@ -301,22 +313,22 @@ const VideoPlayer = ({ video }) => {
   }
 
   const increasePlaybackRate = () => {
-    const newRate = Math.min(4, playbackRate + 0.25)
+    const newRate = Math.min(settings.maxSpeed, playbackRate + settings.normalSpeedIncrement)
     setPlaybackRate(newRate)
     if (videoRef.current && !isTempSpeedActiveRef.current) {
       videoRef.current.playbackRate = newRate
     }
   }
 
-  // Temporary 2x speed on spacebar hold
+  // Temporary speed with dynamic amount
   const activateTempSpeed = () => {
-    if (!videoRef.current) return
+    if (!videoRef.current || !settings.tempSpeedEnabled) return
     
     if (!isTempSpeedActiveRef.current) {
       originalPlaybackRateRef.current = videoRef.current.playbackRate
     }
     
-    videoRef.current.playbackRate = 2
+    videoRef.current.playbackRate = settings.tempSpeedAmount
     isTempSpeedActiveRef.current = true
   }
 
@@ -339,7 +351,26 @@ const VideoPlayer = ({ video }) => {
   }
 
   const handleMouseMove = () => {
+    if (!settings.controlsAutoHide) return
+    
     setShowControls(true)
+    
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current)
+    }
+    
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false)
+      }, settings.autoHideDelay)
+    }
+  }
+
+  const handleVideoClick = (e) => {
+    // Only toggle play if clicking on video area, not controls
+    if (e.target === videoRef.current || e.target.closest('.video-player__element')) {
+      togglePlay()
+    }
   }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
@@ -348,7 +379,7 @@ const VideoPlayer = ({ video }) => {
     <div 
       className="video-player" 
       onMouseMove={handleMouseMove}
-      onClick={togglePlay}
+      onClick={handleVideoClick}
     >
       <video
         ref={videoRef}
@@ -376,31 +407,40 @@ const VideoPlayer = ({ video }) => {
               {isPlaying ? <Pause size={24} /> : <Play size={24} />}
             </button>
             
-            <button className="control-btn" onClick={() => skip(-10)}>
-              <SkipBack size={20} />
-            </button>
-            
-            <button className="control-btn" onClick={() => skip(10)}>
-              <SkipForward size={20} />            </button>
+            {settings.showSkipButtons && (
+              <>
+                <button className="control-btn" onClick={() => skip(settings.backwardSkipAmount)}>
+                  <SkipBack size={20} />
+                </button>
+                
+                <button className="control-btn" onClick={() => skip(settings.forwardSkipAmount)}>
+                  <SkipForward size={20} />
+                </button>
+              </>
+            )}
 
             <div className="volume-control">
               <button className="control-btn" onClick={toggleMute}>
                 {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={volume}
-                onChange={handleVolumeChange}
-                className="volume-slider"
-              />
+              {settings.showVolumeSlider && (
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className="volume-slider"
+                />
+              )}
             </div>
 
-            <div className="time-display">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </div>
+            {settings.showTimeDisplay && (
+              <div className="time-display">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </div>
+            )}
           </div>
 
           <div className="video-player__right-controls">
