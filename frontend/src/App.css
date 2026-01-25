@@ -2,27 +2,34 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-}
+} */
 
 .app__main {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .app__content {
   flex: 1;
   padding: 20px;
-  padding-left: 90px;
+  padding-left: 90px; /* small sidebar width */
   transition: padding-left 0.3s ease;
   overflow-y: auto;
   background-color: #0f0f0f;
 }
 
+/* Large sidebar */
 .app__content.sidebar-open {
   padding-left: 250px;
 }
 
+/* Hidden sidebar */
+.sidebar--hidden ~ .app__content {
+  padding-left: 0px; /* no sidebar */
+}
+
+/* Responsive for mobile */
 @media (max-width: 768px) {
   .app__content {
     padding-left: 20px;

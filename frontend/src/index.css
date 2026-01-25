@@ -21,18 +21,21 @@ body {
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: px;
 }
 
 ::-webkit-scrollbar-track {
   background: #0f0f0f;
 }
 
-::-webkit-scrollbar-thumb {
+
+/* just removed it to make side bar hidden */
+
+/* ::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 5px;
-}
+} */
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555;

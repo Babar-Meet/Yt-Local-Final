@@ -31,8 +31,14 @@
   display: none;
 }
 
-.sidebar--open .sidebar__title {
-  display: block;
+.sidebar--open {
+  width: 240px; /* large */
+}
+
+.sidebar--hidden {
+  width: 0;      /* hidden */
+  padding: 0;
+  overflow: hidden;
 }
 
 .sidebar__item {
@@ -56,8 +62,16 @@
 }
 
 .sidebar__item.active .sidebar__icon {
-  color: #ff0000;
+  color: #00f;
 }
+/* .sidebar__item.active .sidebar__icon {
+  color: #ff0000;
+} */
+
+
+
+
+
 
 .sidebar__icon {
   width: 24px;

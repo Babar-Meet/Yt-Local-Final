@@ -7,7 +7,8 @@ import Watch from './pages/Watch/Watch'
 import './App.css'
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+const [sidebarSize, setSidebarSize] = useState('large') // large, small, hidden
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -39,17 +40,19 @@ function App() {
     }
   }
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen)
-  }
+const toggleSidebar = () => {
+  if (sidebarSize === 'large') setSidebarSize('small')
+  else if (sidebarSize === 'small') setSidebarSize('hidden')
+  else setSidebarSize('large')
+}
 
   return (
     <Router>
       <div className="app">
         <Header toggleSidebar={toggleSidebar} />
         <div className="app__main">
-          <Sidebar isOpen={isSidebarOpen} />
-          <div className={`app__content ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+          <Sidebar size={sidebarSize} />
+          <div className={`app__content ${sidebarSize === 'large' ? 'sidebar-open' : ''}`}>
             <Routes>
               <Route path="/" element={<Home videos={videos} loading={loading} />} />
               <Route path="/watch/:id" element={<Watch videos={videos} />} />
