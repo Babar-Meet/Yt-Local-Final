@@ -18,7 +18,7 @@
 .video-sidebar__list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 5px;
 }
 
 .video-sidebar__empty {
