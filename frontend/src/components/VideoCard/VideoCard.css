@@ -108,6 +108,7 @@
   align-items: center;
 }
 
+
 .video-card__menu {
   background: none;
   border: none;
@@ -147,9 +148,19 @@
   font-size: 12px;
   color: #aaaaaa;
   display: flex;
-  gap: 6px;
-  align-items: center;
+  flex-direction: column;   /* channel row + stats row */
+  gap: 2px;
   margin-top: 4px;
+}
+
+/* stats row (views • date) */
+.video-card--compact .video-card__meta span {
+  display: inline;
+}
+
+/* hide the dot between channel and views */
+.video-card--compact .video-card__meta span:nth-child(2) {
+  display: none;
 }
 
 @media (max-width: 768px) {

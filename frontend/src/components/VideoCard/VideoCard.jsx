@@ -2,6 +2,8 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { Play, MoreVertical } from 'lucide-react'
 import './VideoCard.css'
+import { formatViews } from '../../utils/format'
+
 
 const VideoCard = ({ video, compact = false }) => {
   const {
@@ -31,7 +33,10 @@ const VideoCard = ({ video, compact = false }) => {
             className={isLocalThumbnail ? 'local-thumbnail' : ''}
           />
           {isLocalThumbnail && <div className="thumbnail-badge">🖼️</div>}
-          <div className="video-card__duration">{duration}</div>
+
+          {/* curently we dont want durection to be on thumbnial be if we want we have cocde just un comment it 
+          add durection*/}
+          {/* <div className="video-card__duration">{duration}</div> */}
           <div className="video-card__overlay">
             <Play size={20} />
           </div>
@@ -42,14 +47,14 @@ const VideoCard = ({ video, compact = false }) => {
           </h3>
           <div className="video-card__meta">
             <span>{channel}</span>
-            <span>•</span>
-            <span>{views} views</span>
-            <span>•</span>
+            <span></span>
+            <span>{formatViews(views)} views</span>
+            <span></span>
             <span>{uploadDate}</span>
           </div>
           <div className="video-card__file-info">
             <span>{duration}</span>
-            <span>•</span>
+            <span>  •  </span>
             <span>{size}</span>
             {isLocalThumbnail && <span className="thumbnail-indicator">🖼️ Local Thumbnail</span>}
           </div>
@@ -71,7 +76,11 @@ const VideoCard = ({ video, compact = false }) => {
           className={isLocalThumbnail ? 'local-thumbnail' : ''}
         />
         {isLocalThumbnail && <div className="thumbnail-badge">🖼️</div>}
-        <div className="video-card__duration">{duration}</div>
+                 
+       {/* curently we dont want durection to be on thumbnial be if we want we have cocde just un comment it 
+       add durection*/}
+
+        {/* <div className="video-card__duration">{duration}</div> */}
         <div className="video-card__overlay">
           <Play size={30} />
         </div>
@@ -84,13 +93,13 @@ const VideoCard = ({ video, compact = false }) => {
           </h3>
           <div className="video-card__channel">{channel}</div>
           <div className="video-card__stats">
-            <span>{views} views</span>
-            <span>•</span>
+            <span>{formatViews(views)} views</span>
+            <span>  •  </span>
             <span>{uploadDate}</span>
           </div>
           <div className="video-card__file-info">
             <span>{duration}</span>
-            <span>•</span>
+            <span>  •  </span>
             <span>{size}</span>
             {isLocalThumbnail && <span className="thumbnail-indicator">🖼️</span>}
           </div>
