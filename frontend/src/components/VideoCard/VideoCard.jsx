@@ -41,7 +41,8 @@ const VideoCard = ({ video, compact = false }) => {
           
           {/* Folder indicator */}
           {folder && (
-            <div className="video-card__folder-badge">
+            // <div className="video-card__folder-badge">
+            <div >
               <Folder size={12} />
               <span>{folder.split('/').pop()}</span>
             </div>
@@ -57,7 +58,7 @@ const VideoCard = ({ video, compact = false }) => {
             <span>{channel}</span>
             <span>•</span>
             <span>{formatViews(views)} views</span>
-            <span>•</span>
+            {/* <span>•</span> */}
             <span>{uploadDate}</span>
           </div>
           
@@ -69,7 +70,7 @@ const VideoCard = ({ video, compact = false }) => {
             {/* Show folder if exists */}
             {folder && (
               <>
-                <span>•</span>
+                {/* <span>•</span> */}
                 <span className="folder-indicator" title={`Folder: ${folder}`}>
                   <Folder size={12} />
                   {folder.split('/').pop()}
@@ -99,7 +100,8 @@ const VideoCard = ({ video, compact = false }) => {
         
         {/* Folder indicator */}
         {folder && (
-          <div className="video-card__folder-badge">
+          // <div className="video-card__folder-badge">
+          <div>
             <Folder size={14} />
             <span>{folder.split('/').pop()}</span>
           </div>

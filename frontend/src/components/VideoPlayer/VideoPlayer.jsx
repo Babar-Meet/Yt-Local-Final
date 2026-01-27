@@ -60,6 +60,14 @@ const VideoPlayer = ({ video }) => {
   const rightSkipTimeoutRef = useRef(null)
   const speedIndicatorTimeoutRef = useRef(null)
   const tooltipTimeoutRef = useRef(null)
+  
+  // Mouse/touch handling
+  const videoContainerRef = useRef(null)
+  const lastClickTimeRef = useRef(0)
+  const clickCountRef = useRef(0)
+  const clickTimeoutRef = useRef(null)
+  const mouseHoldTimerRef = useRef(null)
+  const isMouseHoldingRef = useRef(false)
 
   useEffect(() => {
     const videoElement = videoRef.current
@@ -78,12 +86,19 @@ const VideoPlayer = ({ video }) => {
       setIsPlaying(false)
     }
     
+    // Handle fullscreen change
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    
     videoElement.addEventListener('loadedmetadata', handleLoadedMetadata)
     videoElement.addEventListener('ended', handleEnded)
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
     
     return () => {
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
       videoElement.removeEventListener('ended', handleEnded)
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
       clearAllTimeouts()
     }
   }, [])
@@ -95,6 +110,163 @@ const VideoPlayer = ({ video }) => {
     if (speedIndicatorTimeoutRef.current) clearTimeout(speedIndicatorTimeoutRef.current)
     if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
     if (spacebarHoldTimerRef.current) clearTimeout(spacebarHoldTimerRef.current)
+    if (mouseHoldTimerRef.current) clearTimeout(mouseHoldTimerRef.current)
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current)
+  }
+
+  // Handle mouse down - start tracking for hold
+  const handleMouseDown = (e) => {
+    // Only handle left mouse button
+    if (e.button !== 0) return
+    
+    // Don't activate if clicking on controls
+    if (e.target.closest('.video-player__controls') || 
+        e.target.closest('.control-btn') ||
+        e.target.closest('.progress-slider') ||
+        e.target.closest('.volume-slider') ||
+        e.target.tagName === 'INPUT') {
+      return
+    }
+    
+    isMouseHoldingRef.current = false
+    
+    // Start hold timer for temp speed
+    if (settings.tempSpeedEnabled) {
+      mouseHoldTimerRef.current = setTimeout(() => {
+        if (!isMouseHoldingRef.current) {
+          isMouseHoldingRef.current = true
+          activateTempSpeed('mouse')
+        }
+      }, settings.tempSpeedHoldDelay)
+    }
+  }
+
+  // Handle mouse up - determine if it was a click or hold
+  const handleMouseUp = (e) => {
+    if (e.button !== 0) return
+    
+    // Don't handle if clicking on controls
+    if (e.target.closest('.video-player__controls') || 
+        e.target.closest('.control-btn') ||
+        e.target.closest('.progress-slider') ||
+        e.target.closest('.volume-slider') ||
+        e.target.tagName === 'INPUT') {
+      return
+    }
+    
+    // Clear the hold timer if it hasn't fired yet
+    if (mouseHoldTimerRef.current) {
+      clearTimeout(mouseHoldTimerRef.current)
+      mouseHoldTimerRef.current = null
+    }
+    
+    // If we were holding for temp speed, deactivate it
+    if (isMouseHoldingRef.current) {
+      deactivateTempSpeed('mouse')
+      isMouseHoldingRef.current = false
+      return // Don't treat as a click
+    }
+    
+    // It's a click - handle single/double click
+    handleClick()
+  }
+
+  // Handle click (for play/pause and double click for fullscreen)
+  const handleClick = () => {
+    const currentTime = Date.now()
+    const timeSinceLastClick = currentTime - lastClickTimeRef.current
+    
+    clickCountRef.current++
+    
+    if (clickCountRef.current === 1) {
+      // First click
+      lastClickTimeRef.current = currentTime
+      
+      // Wait for possible second click
+      clickTimeoutRef.current = setTimeout(() => {
+        if (clickCountRef.current === 1) {
+          // Single click - toggle play/pause
+          togglePlay()
+        }
+        clickCountRef.current = 0
+      }, 300)
+    } else if (clickCountRef.current === 2 && timeSinceLastClick < 300) {
+      // Double click within 300ms - toggle fullscreen
+      clearTimeout(clickTimeoutRef.current)
+      clickCountRef.current = 0
+      toggleFullscreen()
+    }
+  }
+
+  // Handle double click event directly (as backup)
+  const handleDoubleClick = (e) => {
+    // Don't handle if clicking on controls
+    if (e.target.closest('.video-player__controls') || 
+        e.target.closest('.control-btn') ||
+        e.target.closest('.progress-slider') ||
+        e.target.closest('.volume-slider') ||
+        e.target.tagName === 'INPUT') {
+      return
+    }
+    
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Clear any pending single click timeout
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+    }
+    clickCountRef.current = 0
+    
+    toggleFullscreen()
+  }
+
+  // Mouse leave - cleanup hold timer
+  const handleMouseLeave = () => {
+    if (mouseHoldTimerRef.current) {
+      clearTimeout(mouseHoldTimerRef.current)
+      mouseHoldTimerRef.current = null
+    }
+    
+    if (isMouseHoldingRef.current) {
+      deactivateTempSpeed('mouse')
+      isMouseHoldingRef.current = false
+    }
+  }
+
+  // Temporary speed functions
+  const activateTempSpeed = (source) => {
+    if (!videoRef.current || !settings.tempSpeedEnabled) return
+    
+    // Store original playback rate if we're not already in temp speed mode
+    if (!isTempSpeedActiveRef.current) {
+      originalPlaybackRateRef.current = videoRef.current.playbackRate
+    }
+    
+    const tempSpeed = settings.tempSpeedAmount
+    videoRef.current.playbackRate = tempSpeed
+    isTempSpeedActiveRef.current = true
+    
+    // Show speed indicator for temporary speed
+    displaySpeedIndicator(tempSpeed)
+    
+    // Hide tooltip when temp speed is activated
+    if (source === 'mouse') {
+      setShowSpacebarTooltip(false)
+      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+    }
+  }
+
+  const deactivateTempSpeed = (source) => {
+    if (!videoRef.current || !isTempSpeedActiveRef.current) return
+    
+    const originalSpeed = originalPlaybackRateRef.current
+    videoRef.current.playbackRate = originalSpeed
+    isTempSpeedActiveRef.current = false
+    
+    // Show original speed indicator
+    displaySpeedIndicator(originalSpeed)
   }
 
   // Keyboard shortcuts with dynamic key bindings
@@ -375,7 +547,7 @@ const VideoPlayer = ({ video }) => {
   }
 
   const toggleFullscreen = () => {
-    const elem = videoRef.current.parentElement
+    const elem = videoContainerRef.current
     if (!document.fullscreenElement) {
       if (elem.requestFullscreen) {
         elem.requestFullscreen()
@@ -438,48 +610,6 @@ const VideoPlayer = ({ video }) => {
     }, 2000)
   }
 
-  // Temporary speed with dynamic amount
-  const activateTempSpeed = () => {
-    if (!videoRef.current || !settings.tempSpeedEnabled) return
-    
-    if (!isTempSpeedActiveRef.current) {
-      originalPlaybackRateRef.current = videoRef.current.playbackRate
-    }
-    
-    const tempSpeed = settings.tempSpeedAmount
-    videoRef.current.playbackRate = tempSpeed
-    isTempSpeedActiveRef.current = true
-    
-    // Show speed indicator for temporary speed
-    displaySpeedIndicator(tempSpeed)
-    
-    // Hide tooltip when temp speed is activated
-    setShowSpacebarTooltip(false)
-    if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
-  }
-
-  const deactivateTempSpeed = () => {
-    if (!videoRef.current || !isTempSpeedActiveRef.current) return
-    
-    const originalSpeed = originalPlaybackRateRef.current
-    videoRef.current.playbackRate = originalSpeed
-    isTempSpeedActiveRef.current = false
-    
-    // Show original speed indicator
-    displaySpeedIndicator(originalSpeed)
-  }
-
-  const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600)
-    const mins = Math.floor((seconds % 3600) / 60)
-    const secs = Math.floor(seconds % 60)
-    
-    if (hrs > 0) {
-      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    }
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
   const handleMouseMove = () => {
     if (!settings.controlsAutoHide) return
     
@@ -496,20 +626,29 @@ const VideoPlayer = ({ video }) => {
     }
   }
 
-  const handleVideoClick = (e) => {
-    // Only toggle play if clicking on video area, not controls
-    if (e.target === videoRef.current || e.target.closest('.video-player__element')) {
-      togglePlay()
+  // Format time function
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
+    const secs = Math.floor(seconds % 60)
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
+    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
     <div 
+      ref={videoContainerRef}
       className="video-player" 
       onMouseMove={handleMouseMove}
-      onClick={handleVideoClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      onDoubleClick={handleDoubleClick}
     >
       <video
         ref={videoRef}
@@ -583,9 +722,11 @@ const VideoPlayer = ({ video }) => {
             <Clock size={16} />
           </div>
           <div className="tooltip-content">
-            <div className="tooltip-title">Spacebar Shortcut</div>
+            <div className="tooltip-title">Shortcuts Available</div>
             <div className="tooltip-text">
-              Press and hold <span className="key-highlight">Spacebar</span> to play at <span className="speed-highlight">{settings.tempSpeedAmount}x</span> speed
+              • Press and hold <span className="key-highlight">Spacebar</span> or <span className="key-highlight">Mouse</span> for {settings.tempSpeedAmount}x speed
+              <br />
+              • <span className="key-highlight">Double click</span> to toggle fullscreen
             </div>
           </div>
           <button 
