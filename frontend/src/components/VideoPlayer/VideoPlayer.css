@@ -138,12 +138,20 @@
   margin-left: 10px;
 }
 
-/* Animation Overlay Styles */
+.current-speed-display {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  margin-right: 5px;
+}
+
+/* Animation Overlay Base Styles */
 .animation-overlay {
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
   bottom: 0;
   display: flex;
   align-items: center;
@@ -154,12 +162,14 @@
   transition: opacity 0.3s;
 }
 
-/* Play/Pause Animation */
-/* .play-pause-animation {
-  background: rgba(0, 0, 0, 0.4);
-} */
+/* Center Animation (Play/Pause) */
+.center-animation {
+  left: 0;
+  right: 0;
+  /* background: rgba(0, 0, 0, 0.4); */
+}
 
-.play-pause-animation.active {
+.center-animation.active {
   opacity: 1;
 }
 
@@ -175,7 +185,7 @@
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.play-pause-animation.active .animation-icon {
+.center-animation.active .animation-icon {
   transform: scale(1);
 }
 
@@ -197,7 +207,7 @@
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.play-pause-animation.active .play-triangle {
+.center-animation.active .play-triangle {
   transform: scale(1);
 }
 
@@ -225,16 +235,31 @@
   transition-delay: 0.1s;
 }
 
-.play-pause-animation.active .pause-bar {
+.center-animation.active .pause-bar {
   transform: scaleY(1);
 }
 
-/* Skip Animation */
-.skip-animation {
-  background: rgba(0, 0, 0, 0.4);
+/* Left Skip Animation */
+.left-animation {
+  left: 20px;
+  width: 200px;
+  justify-content: flex-start;
+  /* background: linear-gradient(to right, rgba(0, 0, 0, 0.6), transparent); */
 }
 
-.skip-animation.active {
+.left-animation.active {
+  opacity: 1;
+}
+
+/* Right Skip Animation */
+.right-animation {
+  right: 20px;
+  width: 200px;
+  justify-content: flex-end;
+  /* background: linear-gradient(to left, rgba(0, 0, 0, 0.6), transparent); */
+}
+
+.right-animation.active {
   opacity: 1;
 }
 
@@ -244,20 +269,29 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 20px;
+  opacity: 0;
   transform: translateX(0) scale(0.8);
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: slideInFade 0.3s ease-out forwards;
 }
 
-.skip-animation.forward .skip-animation-content {
-  transform: translateX(20px) scale(0.8);
+@keyframes slideInFade {
+  0% {
+    opacity: 0;
+    transform: translateX(0) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
-.skip-animation.backward .skip-animation-content {
-  transform: translateX(-20px) scale(0.8);
+.left-animation .skip-animation-content {
+  align-items: center;
 }
 
-.skip-animation.active .skip-animation-content {
-  transform: translateX(0) scale(1);
+.right-animation .skip-animation-content {
+  align-items: center;
 }
 
 .skip-icon {
@@ -279,6 +313,134 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   animation: fadeInUp 0.6s ease-out;
+}
+
+/* Speed Indicator */
+.speed-indicator {
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  top: auto;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.speed-indicator.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.speed-indicator-content {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 50px;
+  padding: 9px 9px;
+  text-align: center;
+  min-width: 150px;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.speed-value {
+  color: white;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 9px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.speed-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Spacebar Tooltip */
+.spacebar-tooltip {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  z-index: 20;
+  animation: slideUpFade 0.4s ease-out;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes slideUpFade {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.tooltip-icon {
+  color: #3ea6ff;
+  flex-shrink: 0;
+}
+
+.tooltip-content {
+  flex: 1;
+}
+
+.tooltip-title {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.tooltip-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.key-highlight {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 600;
+  color: #3ea6ff;
+  border: 1px solid rgba(62, 166, 255, 0.3);
+}
+
+.speed-highlight {
+  color: #3ea6ff;
+  font-weight: 700;
+}
+
+.tooltip-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.tooltip-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 /* Animations */
@@ -351,5 +513,34 @@
   
   .skip-time {
     font-size: 20px;
+  }
+  
+  .left-animation,
+  .right-animation {
+    width: 150px;
+  }
+  
+  .speed-indicator-content {
+    min-width: 120px;
+    padding: 12px 16px;
+  }
+  
+  .speed-value {
+    font-size: 24px;
+  }
+  
+  .spacebar-tooltip {
+    min-width: 250px;
+    max-width: 90%;
+    padding: 10px 12px;
+    bottom: 70px;
+  }
+  
+  .tooltip-title {
+    font-size: 13px;
+  }
+  
+  .tooltip-text {
+    font-size: 12px;
   }
 }

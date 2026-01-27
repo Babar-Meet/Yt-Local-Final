@@ -8,7 +8,8 @@ import {
   Minimize,
   ChevronLeft,
   ChevronRight,
-  Settings
+  Settings,
+  Clock
 } from 'lucide-react'
 import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
 import './VideoPlayer.css'
@@ -35,19 +36,42 @@ const VideoPlayer = ({ video }) => {
   
   // Animation states
   const [showPlayPauseAnimation, setShowPlayPauseAnimation] = useState(false)
-  const [showSkipAnimation, setShowSkipAnimation] = useState(false)
-  const [skipDirection, setSkipDirection] = useState(null)
-  const [skipAmount, setSkipAmount] = useState(0)
+  const [leftSkipAnimation, setLeftSkipAnimation] = useState({
+    show: false,
+    amount: 0,
+    key: 0
+  })
+  const [rightSkipAnimation, setRightSkipAnimation] = useState({
+    show: false,
+    amount: 0,
+    key: 0
+  })
+  
+  // Speed indicator state
+  const [showSpeedIndicator, setShowSpeedIndicator] = useState(false)
+  const [speedIndicatorValue, setSpeedIndicatorValue] = useState(1)
+  
+  // Tooltip state
+  const [showSpacebarTooltip, setShowSpacebarTooltip] = useState(true)
   
   // Animation timeouts
   const animationTimeoutRef = useRef(null)
-  const skipAnimationTimeoutRef = useRef(null)
+  const leftSkipTimeoutRef = useRef(null)
+  const rightSkipTimeoutRef = useRef(null)
+  const speedIndicatorTimeoutRef = useRef(null)
+  const tooltipTimeoutRef = useRef(null)
 
   useEffect(() => {
     const videoElement = videoRef.current
     
     const handleLoadedMetadata = () => {
       setDuration(videoElement.duration)
+      // Show tooltip for 5 seconds on first load
+      if (showSpacebarTooltip && settings.tempSpeedEnabled) {
+        tooltipTimeoutRef.current = setTimeout(() => {
+          setShowSpacebarTooltip(false)
+        }, 5000)
+      }
     }
     
     const handleEnded = () => {
@@ -60,10 +84,18 @@ const VideoPlayer = ({ video }) => {
     return () => {
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
       videoElement.removeEventListener('ended', handleEnded)
-      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
-      if (skipAnimationTimeoutRef.current) clearTimeout(skipAnimationTimeoutRef.current)
+      clearAllTimeouts()
     }
   }, [])
+
+  const clearAllTimeouts = () => {
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
+    if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current)
+    if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current)
+    if (speedIndicatorTimeoutRef.current) clearTimeout(speedIndicatorTimeoutRef.current)
+    if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+    if (spacebarHoldTimerRef.current) clearTimeout(spacebarHoldTimerRef.current)
+  }
 
   // Keyboard shortcuts with dynamic key bindings
   useEffect(() => {
@@ -100,12 +132,12 @@ const VideoPlayer = ({ video }) => {
           
         case settings.forwardSkipKey.toLowerCase():
           e.preventDefault()
-          handleSkipWithAnimation(settings.forwardSkipAmount, 'forward')
+          handleSkipWithAnimation(settings.forwardSkipAmount, 'right')
           break
           
         case settings.backwardSkipKey.toLowerCase():
           e.preventDefault()
-          handleSkipWithAnimation(settings.backwardSkipAmount, 'backward')
+          handleSkipWithAnimation(settings.backwardSkipAmount, 'left')
           break
           
         case settings.muteKey.toLowerCase():
@@ -154,10 +186,10 @@ const VideoPlayer = ({ video }) => {
       // Handle arrow keys
       if (key === settings.leftArrowKey) {
         e.preventDefault()
-        handleSkipWithAnimation(settings.leftArrowSkip, 'backward')
+        handleSkipWithAnimation(settings.leftArrowSkip, 'left')
       } else if (key === settings.rightArrowKey) {
         e.preventDefault()
-        handleSkipWithAnimation(settings.rightArrowSkip, 'forward')
+        handleSkipWithAnimation(settings.rightArrowSkip, 'right')
       } else if (key === settings.volumeUpKey) {
         e.preventDefault()
         changeVolume(volume + 0.1)
@@ -235,6 +267,10 @@ const VideoPlayer = ({ video }) => {
       }
       setIsPlaying(!isPlaying)
       
+      // Hide tooltip when user interacts
+      setShowSpacebarTooltip(false)
+      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+      
       // Show play/pause animation
       setShowPlayPauseAnimation(true)
       if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
@@ -244,18 +280,54 @@ const VideoPlayer = ({ video }) => {
     }
   }
 
-  const handleSkipWithAnimation = (seconds, direction) => {
+  const handleSkipWithAnimation = (seconds, side) => {
     skip(seconds)
     
-    // Show skip animation
-    setSkipDirection(direction)
-    setSkipAmount(seconds)
-    setShowSkipAnimation(true)
-    
-    if (skipAnimationTimeoutRef.current) clearTimeout(skipAnimationTimeoutRef.current)
-    skipAnimationTimeoutRef.current = setTimeout(() => {
-      setShowSkipAnimation(false)
-    }, 600)
+    // Clear any existing animation on the same side
+    if (side === 'left') {
+      setLeftSkipAnimation(prev => ({
+        show: false,
+        amount: 0,
+        key: prev.key + 1
+      }))
+      
+      // Force re-render with setTimeout
+      setTimeout(() => {
+        setLeftSkipAnimation({
+          show: true,
+          amount: seconds,
+          key: Date.now()
+        })
+      }, 10)
+      
+      // Clear previous timeout
+      if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current)
+      leftSkipTimeoutRef.current = setTimeout(() => {
+        setLeftSkipAnimation(prev => ({ ...prev, show: false }))
+      }, 600)
+      
+    } else if (side === 'right') {
+      setRightSkipAnimation(prev => ({
+        show: false,
+        amount: 0,
+        key: prev.key + 1
+      }))
+      
+      // Force re-render with setTimeout
+      setTimeout(() => {
+        setRightSkipAnimation({
+          show: true,
+          amount: seconds,
+          key: Date.now()
+        })
+      }, 10)
+      
+      // Clear previous timeout
+      if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current)
+      rightSkipTimeoutRef.current = setTimeout(() => {
+        setRightSkipAnimation(prev => ({ ...prev, show: false }))
+      }, 600)
+    }
   }
 
   const handleTimeUpdate = () => {
@@ -343,6 +415,7 @@ const VideoPlayer = ({ video }) => {
     if (videoRef.current && !isTempSpeedActiveRef.current) {
       videoRef.current.playbackRate = newRate
     }
+    displaySpeedIndicator(newRate)
   }
 
   const increasePlaybackRate = () => {
@@ -351,6 +424,18 @@ const VideoPlayer = ({ video }) => {
     if (videoRef.current && !isTempSpeedActiveRef.current) {
       videoRef.current.playbackRate = newRate
     }
+    displaySpeedIndicator(newRate)
+  }
+
+  // Display speed indicator
+  const displaySpeedIndicator = (speed) => {
+    setSpeedIndicatorValue(speed)
+    setShowSpeedIndicator(true)
+    
+    if (speedIndicatorTimeoutRef.current) clearTimeout(speedIndicatorTimeoutRef.current)
+    speedIndicatorTimeoutRef.current = setTimeout(() => {
+      setShowSpeedIndicator(false)
+    }, 2000)
   }
 
   // Temporary speed with dynamic amount
@@ -361,15 +446,27 @@ const VideoPlayer = ({ video }) => {
       originalPlaybackRateRef.current = videoRef.current.playbackRate
     }
     
-    videoRef.current.playbackRate = settings.tempSpeedAmount
+    const tempSpeed = settings.tempSpeedAmount
+    videoRef.current.playbackRate = tempSpeed
     isTempSpeedActiveRef.current = true
+    
+    // Show speed indicator for temporary speed
+    displaySpeedIndicator(tempSpeed)
+    
+    // Hide tooltip when temp speed is activated
+    setShowSpacebarTooltip(false)
+    if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
   }
 
   const deactivateTempSpeed = () => {
     if (!videoRef.current || !isTempSpeedActiveRef.current) return
     
-    videoRef.current.playbackRate = originalPlaybackRateRef.current
+    const originalSpeed = originalPlaybackRateRef.current
+    videoRef.current.playbackRate = originalSpeed
     isTempSpeedActiveRef.current = false
+    
+    // Show original speed indicator
+    displaySpeedIndicator(originalSpeed)
   }
 
   const formatTime = (seconds) => {
@@ -421,8 +518,8 @@ const VideoPlayer = ({ video }) => {
         onTimeUpdate={handleTimeUpdate}
       />
       
-      {/* Play/Pause Animation Overlay */}
-      <div className={`animation-overlay play-pause-animation ${showPlayPauseAnimation ? 'active' : ''}`}>
+      {/* Play/Pause Animation Overlay - Center */}
+      <div className={`animation-overlay center-animation ${showPlayPauseAnimation ? 'active' : ''}`}>
         <div className="animation-icon">
           {isPlaying ? (
             <div className="pause-icon-animation">
@@ -437,17 +534,71 @@ const VideoPlayer = ({ video }) => {
         </div>
       </div>
 
-      {/* Skip Animation Overlay */}
-      <div className={`animation-overlay skip-animation ${showSkipAnimation ? 'active' : ''} ${skipDirection}`}>
+      {/* Left Skip Animation Overlay */}
+      <div 
+        key={`left-${leftSkipAnimation.key}`}
+        className={`animation-overlay left-animation ${leftSkipAnimation.show ? 'active' : ''}`}
+      >
         <div className="skip-animation-content">
           <div className="skip-icon">
-            {skipDirection === 'forward' ? <ChevronRight size={36} /> : <ChevronLeft size={36} />}
+            <ChevronLeft size={36} />
           </div>
           <div className="skip-time">
-            {skipAmount > 0 ? '+' : ''}{skipAmount}s
+            {leftSkipAnimation.amount < 0 ? '' : '-'}-{Math.abs(leftSkipAnimation.amount)}s
           </div>
         </div>
       </div>
+
+      {/* Right Skip Animation Overlay */}
+      <div 
+        key={`right-${rightSkipAnimation.key}`}
+        className={`animation-overlay right-animation ${rightSkipAnimation.show ? 'active' : ''}`}
+      >
+        <div className="skip-animation-content">
+          <div className="skip-icon">
+            <ChevronRight size={36} />
+          </div>
+          <div className="skip-time">
+            +{Math.abs(rightSkipAnimation.amount)}s
+          </div>
+        </div>
+      </div>
+
+      {/* Speed Indicator Overlay */}
+      <div className={`animation-overlay speed-indicator ${showSpeedIndicator ? 'active' : ''}`}>
+        <div className="speed-indicator-content">
+          <div className="speed-value">
+            {speedIndicatorValue.toFixed(1)}x
+          </div>
+          <div className="speed-label">
+            {isTempSpeedActiveRef.current ? "Temporary Speed" : "Playback Speed"}
+          </div>
+        </div>
+      </div>
+
+      {/* Spacebar Tooltip */}
+      {showSpacebarTooltip && settings.tempSpeedEnabled && !isPlaying && (
+        <div className="spacebar-tooltip">
+          <div className="tooltip-icon">
+            <Clock size={16} />
+          </div>
+          <div className="tooltip-content">
+            <div className="tooltip-title">Spacebar Shortcut</div>
+            <div className="tooltip-text">
+              Press and hold <span className="key-highlight">Spacebar</span> to play at <span className="speed-highlight">{settings.tempSpeedAmount}x</span> speed
+            </div>
+          </div>
+          <button 
+            className="tooltip-close"
+            onClick={() => {
+              setShowSpacebarTooltip(false)
+              if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       
       <div className={`video-player__controls ${showControls ? 'visible' : ''}`}>
         <div className="video-player__progress">
@@ -470,11 +621,11 @@ const VideoPlayer = ({ video }) => {
             
             {settings.showSkipButtons && (
               <>
-                <button className="control-btn" onClick={() => handleSkipWithAnimation(settings.backwardSkipAmount, 'backward')}>
+                <button className="control-btn" onClick={() => handleSkipWithAnimation(settings.backwardSkipAmount, 'left')}>
                   <ChevronLeft size={20} />
                 </button>
                 
-                <button className="control-btn" onClick={() => handleSkipWithAnimation(settings.forwardSkipAmount, 'forward')}>
+                <button className="control-btn" onClick={() => handleSkipWithAnimation(settings.forwardSkipAmount, 'right')}>
                   <ChevronRight size={20} />
                 </button>
               </>
@@ -505,6 +656,10 @@ const VideoPlayer = ({ video }) => {
           </div>
 
           <div className="video-player__right-controls">
+            <div className="current-speed-display">
+              {playbackRate.toFixed(1)}x
+            </div>
+            
             <button className="control-btn">
               <Settings size={20} />
             </button>
