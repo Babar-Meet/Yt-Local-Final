@@ -6,8 +6,8 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  SkipBack,
-  SkipForward,
+  ChevronLeft,
+  ChevronRight,
   Settings
 } from 'lucide-react'
 import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
@@ -32,6 +32,16 @@ const VideoPlayer = ({ video }) => {
   const originalPlaybackRateRef = useRef(1)
   const isTempSpeedActiveRef = useRef(false)
   const controlsTimeoutRef = useRef(null)
+  
+  // Animation states
+  const [showPlayPauseAnimation, setShowPlayPauseAnimation] = useState(false)
+  const [showSkipAnimation, setShowSkipAnimation] = useState(false)
+  const [skipDirection, setSkipDirection] = useState(null)
+  const [skipAmount, setSkipAmount] = useState(0)
+  
+  // Animation timeouts
+  const animationTimeoutRef = useRef(null)
+  const skipAnimationTimeoutRef = useRef(null)
 
   useEffect(() => {
     const videoElement = videoRef.current
@@ -50,6 +60,8 @@ const VideoPlayer = ({ video }) => {
     return () => {
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
       videoElement.removeEventListener('ended', handleEnded)
+      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
+      if (skipAnimationTimeoutRef.current) clearTimeout(skipAnimationTimeoutRef.current)
     }
   }, [])
 
@@ -88,12 +100,12 @@ const VideoPlayer = ({ video }) => {
           
         case settings.forwardSkipKey.toLowerCase():
           e.preventDefault()
-          skip(settings.forwardSkipAmount)
+          handleSkipWithAnimation(settings.forwardSkipAmount, 'forward')
           break
           
         case settings.backwardSkipKey.toLowerCase():
           e.preventDefault()
-          skip(settings.backwardSkipAmount)
+          handleSkipWithAnimation(settings.backwardSkipAmount, 'backward')
           break
           
         case settings.muteKey.toLowerCase():
@@ -142,10 +154,10 @@ const VideoPlayer = ({ video }) => {
       // Handle arrow keys
       if (key === settings.leftArrowKey) {
         e.preventDefault()
-        skip(settings.leftArrowSkip)
+        handleSkipWithAnimation(settings.leftArrowSkip, 'backward')
       } else if (key === settings.rightArrowKey) {
         e.preventDefault()
-        skip(settings.rightArrowSkip)
+        handleSkipWithAnimation(settings.rightArrowSkip, 'forward')
       } else if (key === settings.volumeUpKey) {
         e.preventDefault()
         changeVolume(volume + 0.1)
@@ -222,7 +234,28 @@ const VideoPlayer = ({ video }) => {
         videoRef.current.play()
       }
       setIsPlaying(!isPlaying)
+      
+      // Show play/pause animation
+      setShowPlayPauseAnimation(true)
+      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
+      animationTimeoutRef.current = setTimeout(() => {
+        setShowPlayPauseAnimation(false)
+      }, 600)
     }
+  }
+
+  const handleSkipWithAnimation = (seconds, direction) => {
+    skip(seconds)
+    
+    // Show skip animation
+    setSkipDirection(direction)
+    setSkipAmount(seconds)
+    setShowSkipAnimation(true)
+    
+    if (skipAnimationTimeoutRef.current) clearTimeout(skipAnimationTimeoutRef.current)
+    skipAnimationTimeoutRef.current = setTimeout(() => {
+      setShowSkipAnimation(false)
+    }, 600)
   }
 
   const handleTimeUpdate = () => {
@@ -388,6 +421,34 @@ const VideoPlayer = ({ video }) => {
         onTimeUpdate={handleTimeUpdate}
       />
       
+      {/* Play/Pause Animation Overlay */}
+      <div className={`animation-overlay play-pause-animation ${showPlayPauseAnimation ? 'active' : ''}`}>
+        <div className="animation-icon">
+          {isPlaying ? (
+            <div className="pause-icon-animation">
+              <div className="pause-bar left"></div>
+              <div className="pause-bar right"></div>
+            </div>
+          ) : (
+            <div className="play-icon-animation">
+              <div className="play-triangle"></div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Skip Animation Overlay */}
+      <div className={`animation-overlay skip-animation ${showSkipAnimation ? 'active' : ''} ${skipDirection}`}>
+        <div className="skip-animation-content">
+          <div className="skip-icon">
+            {skipDirection === 'forward' ? <ChevronRight size={36} /> : <ChevronLeft size={36} />}
+          </div>
+          <div className="skip-time">
+            {skipAmount > 0 ? '+' : ''}{skipAmount}s
+          </div>
+        </div>
+      </div>
+      
       <div className={`video-player__controls ${showControls ? 'visible' : ''}`}>
         <div className="video-player__progress">
           <input
@@ -409,12 +470,12 @@ const VideoPlayer = ({ video }) => {
             
             {settings.showSkipButtons && (
               <>
-                <button className="control-btn" onClick={() => skip(settings.backwardSkipAmount)}>
-                  <SkipBack size={20} />
+                <button className="control-btn" onClick={() => handleSkipWithAnimation(settings.backwardSkipAmount, 'backward')}>
+                  <ChevronLeft size={20} />
                 </button>
                 
-                <button className="control-btn" onClick={() => skip(settings.forwardSkipAmount)}>
-                  <SkipForward size={20} />
+                <button className="control-btn" onClick={() => handleSkipWithAnimation(settings.forwardSkipAmount, 'forward')}>
+                  <ChevronRight size={20} />
                 </button>
               </>
             )}
