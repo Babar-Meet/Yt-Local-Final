@@ -122,7 +122,7 @@ const VideoCard = ({ video, compact = false }) => {
           
           <div className="video-card__stats">
             <span>{formatViews(views)} views</span>
-            <span>•</span>
+            {/* <span>•</span> */}
             <span>{uploadDate}</span>
           </div>
           

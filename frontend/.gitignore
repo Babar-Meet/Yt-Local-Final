@@ -29,3 +29,5 @@ dist-ssr
 
 # But keep the folder structure (empty folders won't be tracked by git)
 !.gitkeep
+
+/public/
