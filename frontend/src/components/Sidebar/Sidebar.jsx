@@ -98,7 +98,6 @@ const Sidebar = ({ size, categories, videos }) => {
           ))}
         </div>
 
-        <div className="sidebar__divider" />
 
         {/* Categories Section - Dynamic */}
         <div className="sidebar__section">
@@ -117,6 +116,8 @@ const Sidebar = ({ size, categories, videos }) => {
                 <span className="sidebar__count">{category.count}</span>
               </div>
             </Link>
+
+            
           ))}
           
           {categories?.length > 5 && (
