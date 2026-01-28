@@ -392,3 +392,145 @@ exports.deletePermanently = async (req, res) => {
     });
   }
 };
+
+// Add these new functions to the existing videoController.js
+
+// Get all videos in trash
+exports.getTrashVideos = async (req, res) => {
+  try {
+    if (!fs.existsSync(trashDir)) {
+      return res.json({ 
+        success: true, 
+        videos: [],
+        total: 0
+      });
+    }
+
+    // Find all video files in the trash directory
+    const videoFiles = findVideoFiles(trashDir, '', []); // Pass empty basePath for trash
+    
+    // Get video info for each file
+    const videos = videoFiles.map(videoFile => {
+      const info = videoService.getVideoInfo(videoFile.absolutePath, videoFile.relativePath);
+      return {
+        ...info,
+        originalPath: this.getOriginalPathFromTrash(videoFile.filename),
+        deletedDate: fs.statSync(videoFile.absolutePath).mtime,
+        inTrash: true
+      };
+    });
+
+    res.json({ 
+      success: true, 
+      videos,
+      total: videos.length
+    });
+    
+  } catch (error) {
+    console.error('Error reading trash videos:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to load trash videos' 
+    });
+  }
+};
+
+// Helper to reconstruct original path from trash filename
+exports.getOriginalPathFromTrash = (filename) => {
+  // Remove "thumbnail_" prefix if exists
+  const cleanName = filename.replace(/^thumbnail_/, '');
+  // Try to find original path based on naming pattern
+  // You might need to store original path in a separate file when moving to trash
+  return cleanName;
+};
+
+// Empty trash (delete all files in trash folder)
+exports.emptyTrash = async (req, res) => {
+  try {
+    if (!fs.existsSync(trashDir)) {
+      return res.json({ 
+        success: true, 
+        message: 'Trash is already empty',
+        deletedCount: 0
+      });
+    }
+
+    const files = fs.readdirSync(trashDir);
+    let deletedCount = 0;
+    let errors = [];
+
+    files.forEach(file => {
+      try {
+        const filePath = path.join(trashDir, file);
+        fs.unlinkSync(filePath);
+        deletedCount++;
+      } catch (error) {
+        console.error(`Error deleting ${file}:`, error);
+        errors.push(file);
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      message: `Trash emptied successfully. Deleted ${deletedCount} files.`,
+      deletedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('Error emptying trash:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to empty trash' 
+    });
+  }
+};
+
+// Restore video from trash
+exports.restoreFromTrash = async (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const trashPath = path.join(trashDir, filename);
+    
+    if (!fs.existsSync(trashPath)) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'File not found in trash' 
+      });
+    }
+
+    // Try to restore to original location (you'll need to store original path)
+    // For now, restore to public root
+    const originalPath = path.join(publicDir, filename);
+    
+    // Check if file already exists at destination
+    if (fs.existsSync(originalPath)) {
+      // Add timestamp to avoid conflict
+      const timestamp = Date.now();
+      const name = path.basename(filename, path.extname(filename));
+      const ext = path.extname(filename);
+      const newName = `${name}_restored_${timestamp}${ext}`;
+      const newPath = path.join(publicDir, newName);
+      fs.renameSync(trashPath, newPath);
+      
+      res.json({ 
+        success: true, 
+        message: 'File restored with new name to avoid conflict',
+        newPath: newName
+      });
+    } else {
+      fs.renameSync(trashPath, originalPath);
+      res.json({ 
+        success: true, 
+        message: 'File restored successfully' 
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error restoring from trash:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to restore file' 
+    });
+  }
+};

@@ -1,0 +1,366 @@
+.trash-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+/* Header */
+.trash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #303030;
+}
+
+.trash-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trash-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.trash-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trash-count {
+  color: #aaaaaa;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background-color: #272727;
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+/* Empty Trash Button */
+.empty-trash-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff0000 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.empty-trash-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
+}
+
+.empty-trash-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Warning Banner */
+.trash-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  color: #ff6b6b;
+}
+
+.trash-warning svg {
+  flex-shrink: 0;
+}
+
+.warning-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.warning-content strong {
+  font-size: 14px;
+}
+
+.warning-content span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Empty State */
+.trash-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+  color: #aaaaaa;
+}
+
+.trash-empty svg {
+  margin-bottom: 20px;
+  opacity: 0.3;
+}
+
+.trash-empty h3 {
+  color: #ffffff;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.trash-empty p {
+  margin-bottom: 24px;
+  max-width: 400px;
+}
+
+.go-home-btn {
+  background: #3ea6ff;
+  color: #0f0f0f;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.go-home-btn:hover {
+  background: #2d8cd6;
+}
+
+/* Videos Grid */
+.trash-videos-header {
+  margin-bottom: 24px;
+}
+
+.trash-videos-header h3 {
+  font-size: 20px;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.trash-instructions {
+  display: flex;
+  gap: 12px;
+  color: #aaaaaa;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.trash-videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+/* Trash Video Item */
+.trash-video-item {
+  background: #181818;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #303030;
+  transition: all 0.2s;
+}
+
+.trash-video-item:hover {
+  border-color: #404040;
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.trash-video-thumbnail {
+  position: relative;
+  aspect-ratio: 16/9;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.trash-video-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.trash-video-item:hover .trash-video-thumbnail img {
+  transform: scale(1.05);
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.trash-video-thumbnail:hover .thumbnail-overlay {
+  opacity: 1;
+}
+
+.trash-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.trash-video-info {
+  padding: 16px;
+}
+
+.trash-video-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.trash-video-details {
+  display: flex;
+  gap: 6px;
+  color: #aaaaaa;
+  font-size: 12px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.trash-video-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.restore-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(62, 166, 255, 0.1);
+  color: #3ea6ff;
+  border: 1px solid rgba(62, 166, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.restore-btn:hover {
+  background: rgba(62, 166, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.delete-date {
+  color: #aaaaaa;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* Loading State */
+.trash-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  color: #aaaaaa;
+}
+
+.trash-loading .loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #303030;
+  border-top: 4px solid #ff0000;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .trash-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .trash-actions {
+    width: 100%;
+  }
+  
+  .empty-trash-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .trash-videos-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .trash-instructions {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

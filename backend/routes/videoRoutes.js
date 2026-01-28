@@ -19,5 +19,15 @@ router.post('/trash/:path(*)', videoController.moveToTrash);
 
 // Permanently delete video
 router.delete('/delete/:path(*)', videoController.deletePermanently);
+// Add these routes after the existing ones
+
+// Get all videos in trash
+router.get('/trash', videoController.getTrashVideos);
+
+// Empty trash
+router.delete('/trash/empty', videoController.emptyTrash);
+
+// Restore video from trash
+router.post('/trash/restore/:filename', videoController.restoreFromTrash);
 
 module.exports = router;

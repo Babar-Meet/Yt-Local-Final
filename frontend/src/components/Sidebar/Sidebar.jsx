@@ -1,16 +1,38 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home,
   Folder,
   FolderOpen,
   ListVideo,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react'
 import './Sidebar.css'
 
 const Sidebar = ({ size, videos }) => {
   const location = useLocation()
+  const [trashCount, setTrashCount] = useState(0)
+
+  // Fetch trash count on mount and when videos change
+  useEffect(() => {
+    const fetchTrashCount = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/videos/trash')
+        const data = await response.json()
+        if (data.success) {
+          setTrashCount(data.total)
+        }
+      } catch (error) {
+        console.error('Error fetching trash count:', error)
+      }
+    }
+    
+    fetchTrashCount()
+    // Optionally refresh every 30 seconds
+    const interval = setInterval(fetchTrashCount, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const mainItems = [
     { icon: <Home size={24} />, label: 'Home', path: '/' }
@@ -32,7 +54,7 @@ const Sidebar = ({ size, videos }) => {
     return Array.from(folderSet)
       .filter(folder => {
         const lowerFolder = folder.toLowerCase()
-        return lowerFolder !== 'thumbnails' && !lowerFolder.startsWith('playlist')
+        return lowerFolder !== 'thumbnails' && !lowerFolder.startsWith('playlist') && lowerFolder !== 'trash'
       })
       .map(folder => ({
         name: folder, // Keep original name for display
@@ -70,9 +92,15 @@ const Sidebar = ({ size, videos }) => {
   const allFolders = getAllFolders()
   const allPlaylists = getAllPlaylists()
 
-  const subscriptions = [
+  const libraryItems = [
     { icon: <Folder size={24} />, label: 'My Videos', path: '/category/' },
     { icon: <Folder size={24} />, label: 'All Videos', path: '/category/all' },
+    { 
+      icon: <Trash2 size={24} />, 
+      label: 'Trash', 
+      path: '/trash',
+      badge: trashCount > 0 ? trashCount : null
+    }
   ]
 
   return (
@@ -98,17 +126,22 @@ const Sidebar = ({ size, videos }) => {
 
         <div className="sidebar__divider" />
 
-        {/* Subscriptions Section */}
+        {/* Library Section */}
         <div className="sidebar__section">
           <h3 className="sidebar__title">Library</h3>
-          {subscriptions.map((item, index) => (
+          {libraryItems.map((item, index) => (
             <Link
-              key={index} 
-              to={item.path}   
+              key={index}
+              to={item.path}
               className={`sidebar__item ${location.pathname === item.path ? 'active' : ''}`}
             >
               <span className="sidebar__icon">{item.icon}</span>
-              <span className="sidebar__label">{item.label}</span>
+              <div className="sidebar__label-wrapper">
+                <span className="sidebar__label">{item.label}</span>
+                {item.badge && item.badge > 0 && (
+                  <span className="sidebar__badge">{item.badge}</span>
+                )}
+              </div>
             </Link>
           ))}
         </div>
@@ -119,7 +152,7 @@ const Sidebar = ({ size, videos }) => {
         {allFolders.length > 0 && (
           <>
             <div className="sidebar__section">
-              <h3 className="sidebar__title">Videos</h3>
+              <h3 className="sidebar__title">Folders</h3>
               {allFolders.map((folder, index) => (
                 <Link
                   key={index}

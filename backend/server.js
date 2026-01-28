@@ -27,6 +27,7 @@ const trashDir = path.join(publicDir, 'trash');
 // Serve static files
 app.use('/public', express.static(publicDir));
 app.use('/thumbnails', express.static(thumbnailsDir));
+app.use('/trash', express.static(trashDir)); // <- Moved here, after trashDir is defined
 
 // Use routes
 app.use('/api/videos', videoRoutes);
