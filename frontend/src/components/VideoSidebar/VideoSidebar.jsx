@@ -3,7 +3,8 @@ import VideoCard from '../VideoCard/VideoCard'
 import './VideoSidebar.css'
 
 const VideoSidebar = ({ videos, currentVideoId }) => {
-  const [selectedCategory, setSelectedCategory] = useState('all')
+  // Set default to 'same-type' instead of 'all'
+  const [selectedCategory, setSelectedCategory] = useState('same-type')
   const categoryFilterRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
@@ -18,6 +19,18 @@ const VideoSidebar = ({ videos, currentVideoId }) => {
   // Get current video's folder name for display
   const currentFolderName = currentVideoFolder ? 
     currentVideoFolder.split('/').pop().replace(/[-_]/g, ' ') : ''
+
+  // Check if same-type category has videos
+  const sameTypeVideoCount = videos.filter(v => 
+    v.folder === currentVideoFolder && v.id !== currentVideoId
+  ).length
+
+  // Update selected category if same-type has no videos
+  useEffect(() => {
+    if (selectedCategory === 'same-type' && sameTypeVideoCount === 0) {
+      setSelectedCategory('all')
+    }
+  }, [sameTypeVideoCount, currentVideoId])
 
   // Mouse events for horizontal drag scrolling
   const handleMouseDown = (e) => {
@@ -128,16 +141,16 @@ const VideoSidebar = ({ videos, currentVideoId }) => {
   // Create category options
   const categories = [
     {
-      id: 'all',
-      name: 'All Videos',
-      displayName: `All Videos (${videos.length - 1})`
-    },
-    {
       id: 'same-type',
       name: 'Same Type',
       displayName: currentFolderName ? 
-        `${currentFolderName} (${videos.filter(v => v.folder === currentVideoFolder && v.id !== currentVideoId).length})` : 
+        `${currentFolderName} (${sameTypeVideoCount})` : 
         'Same Type (0)'
+    },
+    {
+      id: 'all',
+      name: 'All Videos',
+      displayName: `All Videos (${videos.length - 1})`
     },
     ...popularFolders.filter(folder => folder.path !== currentVideoFolder)
   ]
