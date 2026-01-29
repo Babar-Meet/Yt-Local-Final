@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { formatFileSize } = require('../utils/format');
+const ffmpeg = require('fluent-ffmpeg');
 
 const thumbnailsDir = path.join(__dirname, '../public/thumbnails');
 
@@ -17,8 +18,8 @@ exports.getVideoInfo = (filePath, relativePath) => {
     nameWithoutExt : 
     path.join(relativeDir, nameWithoutExt);
   
-  // Get thumbnail
-  const thumbnail = this.getThumbnail(thumbnailRelativePath);
+  // Get thumbnail - pass video file path for frame extraction
+  const thumbnail = this.getThumbnail(thumbnailRelativePath, filePath);
   
   // Generate YouTube-like metadata
   const views = Math.floor(Math.random() * 1000000) + 1000;
@@ -60,8 +61,8 @@ exports.getVideoInfo = (filePath, relativePath) => {
   };
 };
 
-// Get thumbnail path or generate placeholder
-exports.getThumbnail = (thumbnailRelativePath) => {
+// Get thumbnail path, extract frame from video if not found, or generate placeholder
+exports.getThumbnail = (thumbnailRelativePath, videoFilePath) => {
   const thumbnailExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
   const thumbnailsBaseDir = path.join(__dirname, '../public/thumbnails');
   
@@ -82,8 +83,57 @@ exports.getThumbnail = (thumbnailRelativePath) => {
     }
   }
   
-  // Generate placeholder if no thumbnail found
+  // If thumbnail not found, try to extract a frame from the video
+  if (videoFilePath && fs.existsSync(videoFilePath)) {
+    const extractedThumbnail = this.extractVideoFrame(videoFilePath, thumbnailRelativePath);
+    if (extractedThumbnail) {
+      return extractedThumbnail;
+    }
+  }
+  
+  // Generate placeholder if no thumbnail found and video frame extraction failed
   return this.generatePlaceholderThumbnail(fileName);
+};
+
+// Extract a frame from video and save as thumbnail
+exports.extractVideoFrame = (videoFilePath, thumbnailRelativePath) => {
+  try {
+    const thumbnailsBaseDir = path.join(__dirname, '../public/thumbnails');
+    const thumbnailPath = path.join(thumbnailsBaseDir, thumbnailRelativePath + '.jpg');
+    const thumbnailDir = path.dirname(thumbnailPath);
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(thumbnailDir)) {
+      fs.mkdirSync(thumbnailDir, { recursive: true });
+    }
+    
+    // Use a promise to handle async ffmpeg operation
+    return new Promise((resolve) => {
+      // Try to extract frame at 1 second (or 10% of duration if available)
+      ffmpeg(videoFilePath)
+        .on('end', () => {
+          if (fs.existsSync(thumbnailPath)) {
+            const relativeThumbPath = thumbnailPath.replace(thumbnailsBaseDir + path.sep, '').replace(/\\/g, '/');
+            resolve(`/thumbnails/${encodeURIComponent(relativeThumbPath)}`);
+          } else {
+            resolve(null);
+          }
+        })
+        .on('error', (err) => {
+          console.error('Error extracting video frame:', err.message);
+          resolve(null);
+        })
+        .screenshots({
+          count: 1,
+          filename: path.basename(thumbnailRelativePath) + '.jpg',
+          folder: thumbnailDir,
+          size: '320x180'
+        });
+    });
+  } catch (error) {
+    console.error('Error in extractVideoFrame:', error);
+    return null;
+  }
 };
 
 // Generate placeholder thumbnail

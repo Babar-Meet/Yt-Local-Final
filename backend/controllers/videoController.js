@@ -53,10 +53,12 @@ exports.getAllVideos = async (req, res) => {
       return !video.absolutePath.includes(trashDir);
     });
     
-    // Get video info for each file
-    const videos = videoFiles.map(videoFile => {
-      return videoService.getVideoInfo(videoFile.absolutePath, videoFile.relativePath);
-    });
+    // Get video info for each file (async)
+    const videos = [];
+    for (const videoFile of videoFiles) {
+      const videoInfo = await videoService.getVideoInfo(videoFile.absolutePath, videoFile.relativePath);
+      videos.push(videoInfo);
+    }
 
     // Create categories based on folder structure
     const categories = createCategories(videos);
@@ -136,7 +138,7 @@ exports.getVideo = async (req, res) => {
       });
     }
     
-    const videoInfo = videoService.getVideoInfo(filePath, relativePath);
+    const videoInfo = await videoService.getVideoInfo(filePath, relativePath);
     res.json({ success: true, video: videoInfo });
     
   } catch (error) {
@@ -218,17 +220,17 @@ exports.getVideosByCategory = async (req, res) => {
     });
     
     // Filter videos by category/folder
-    const categoryVideos = videoFiles
-      .filter(videoFile => {
-        const videoRelativePath = videoFile.relativePath;
-        const videoDir = path.dirname(videoRelativePath);
-        return videoDir === categoryPath || 
-               (categoryPath === '' && videoDir === '') ||
-               videoDir.startsWith(categoryPath + path.sep);
-      })
-      .map(videoFile => {
-        return videoService.getVideoInfo(videoFile.absolutePath, videoFile.relativePath);
-      });
+    const categoryVideos = [];
+    for (const videoFile of videoFiles) {
+      const videoRelativePath = videoFile.relativePath;
+      const videoDir = path.dirname(videoRelativePath);
+      if (videoDir === categoryPath || 
+          (categoryPath === '' && videoDir === '') ||
+          videoDir.startsWith(categoryPath + path.sep)) {
+        const videoInfo = await videoService.getVideoInfo(videoFile.absolutePath, videoFile.relativePath);
+        categoryVideos.push(videoInfo);
+      }
+    }
 
     // Get category info
     const categoryName = categoryPath.split(path.sep).pop() || 'All Videos';
