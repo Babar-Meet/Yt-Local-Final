@@ -9,12 +9,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  Clock
+  Clock,
+  SkipForward,
+  SkipBack,
+  Repeat,
+  Repeat1
 } from 'lucide-react'
 import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
 import './VideoPlayer.css'
 
-const VideoPlayer = ({ video }) => {
+const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
   const { settings } = useVideoPlayerSettings()
   
   const videoRef = useRef(null)
@@ -26,6 +30,11 @@ const VideoPlayer = ({ video }) => {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [playbackRate, setPlaybackRate] = useState(1)
+  
+  // NEW: Loop and auto-play states
+  const [loopSingle, setLoopSingle] = useState(settings.loopSingle)
+  const [showLoopAnimation, setShowLoopAnimation] = useState(false)
+  const [isAutoPlayingNext, setIsAutoPlayingNext] = useState(false)
   
   // Refs for spacebar hold functionality
   const spacebarHoldTimerRef = useRef(null)
@@ -39,12 +48,14 @@ const VideoPlayer = ({ video }) => {
   const [leftSkipAnimation, setLeftSkipAnimation] = useState({
     show: false,
     amount: 0,
-    key: 0
+    key: 0,
+    type: 'skip' // 'skip' or 'video'
   })
   const [rightSkipAnimation, setRightSkipAnimation] = useState({
     show: false,
     amount: 0,
-    key: 0
+    key: 0,
+    type: 'skip' // 'skip' or 'video'
   })
   
   // Speed indicator state
@@ -69,6 +80,25 @@ const VideoPlayer = ({ video }) => {
   const mouseHoldTimerRef = useRef(null)
   const isMouseHoldingRef = useRef(false)
 
+  // Clean up animations when video changes
+  useEffect(() => {
+    // Clear all animations when video changes
+    setLeftSkipAnimation(prev => ({ ...prev, show: false }))
+    setRightSkipAnimation(prev => ({ ...prev, show: false }))
+    setShowPlayPauseAnimation(false)
+    setShowLoopAnimation(false)
+    
+    // Clear animation timeouts
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
+    if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current)
+    if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current)
+    
+    return () => {
+      // Cleanup when component unmounts
+      clearAllTimeouts()
+    }
+  }, [video]) // Run when video prop changes
+
   useEffect(() => {
     const videoElement = videoRef.current
     
@@ -83,7 +113,21 @@ const VideoPlayer = ({ video }) => {
     }
     
     const handleEnded = () => {
-      setIsPlaying(false)
+      if (loopSingle) {
+        // Loop current video
+        videoElement.currentTime = 0
+        videoElement.play()
+        showLoopAnimationEffect()
+      } else if (settings.autoPlayNext && onNextVideo) {
+        // Auto-play next video
+        setIsAutoPlayingNext(true)
+        setTimeout(() => {
+          onNextVideo()
+          setIsAutoPlayingNext(false)
+        }, settings.autoPlayDelay * 1000)
+      } else {
+        setIsPlaying(false)
+      }
     }
     
     // Handle fullscreen change
@@ -101,7 +145,7 @@ const VideoPlayer = ({ video }) => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
       clearAllTimeouts()
     }
-  }, [])
+  }, [loopSingle, settings.autoPlayNext, settings.autoPlayDelay, onNextVideo])
 
   const clearAllTimeouts = () => {
     if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
@@ -112,6 +156,14 @@ const VideoPlayer = ({ video }) => {
     if (spacebarHoldTimerRef.current) clearTimeout(spacebarHoldTimerRef.current)
     if (mouseHoldTimerRef.current) clearTimeout(mouseHoldTimerRef.current)
     if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current)
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+  }
+
+  const showLoopAnimationEffect = () => {
+    setShowLoopAnimation(true)
+    setTimeout(() => {
+      setShowLoopAnimation(false)
+    }, 1000)
   }
 
   // Handle mouse down - start tracking for hold
@@ -353,6 +405,29 @@ const VideoPlayer = ({ video }) => {
           e.preventDefault()
           toggleFullscreen()
           break
+          
+        // NEW: Next/Previous video shortcuts
+        case settings.nextVideoKey.toLowerCase():
+          e.preventDefault()
+          if (onNextVideo) {
+            handleNextVideo()
+          }
+          break
+          
+        case settings.prevVideoKey.toLowerCase():
+          e.preventDefault()
+          if (onPreviousVideo) {
+            handlePreviousVideo()
+          }
+          break
+          
+        // NEW: Toggle loop shortcut
+        case 'l':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            toggleLoop()
+          }
+          break
       }
 
       // Handle arrow keys
@@ -404,7 +479,7 @@ const VideoPlayer = ({ video }) => {
         clearTimeout(spacebarHoldTimerRef.current)
       }
     }
-  }, [volume, playbackRate, showControls, isFullscreen, isPlaying, settings])
+  }, [volume, playbackRate, showControls, isFullscreen, isPlaying, settings, onNextVideo, onPreviousVideo])
 
   // Auto-hide controls
   useEffect(() => {
@@ -452,23 +527,87 @@ const VideoPlayer = ({ video }) => {
     }
   }
 
+  const toggleLoop = () => {
+    setLoopSingle(!loopSingle)
+    if (!loopSingle) {
+      showLoopAnimationEffect()
+    }
+  }
+
+  const handleNextVideo = () => {
+    if (onNextVideo) {
+      // Clear any existing animation immediately
+      setRightSkipAnimation(prev => ({ ...prev, show: false }))
+      
+      // Force a re-render with new animation
+      setTimeout(() => {
+        setRightSkipAnimation({
+          show: true,
+          amount: 'Next Video',
+          key: Date.now(),
+          type: 'video'
+        })
+        
+        // Clear previous timeout
+        if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current)
+        
+        // Set new timeout - shorter duration for video change
+        rightSkipTimeoutRef.current = setTimeout(() => {
+          setRightSkipAnimation(prev => ({ ...prev, show: false }))
+        }, 800) // Slightly longer for video change
+      }, 10)
+      
+      // Call the callback after animation starts
+      setTimeout(() => {
+        onNextVideo()
+      }, 200)
+    }
+  }
+
+  const handlePreviousVideo = () => {
+    if (onPreviousVideo) {
+      // Clear any existing animation immediately
+      setLeftSkipAnimation(prev => ({ ...prev, show: false }))
+      
+      // Force a re-render with new animation
+      setTimeout(() => {
+        setLeftSkipAnimation({
+          show: true,
+          amount: 'Prev Video',
+          key: Date.now(),
+          type: 'video'
+        })
+        
+        // Clear previous timeout
+        if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current)
+        
+        // Set new timeout - shorter duration for video change
+        leftSkipTimeoutRef.current = setTimeout(() => {
+          setLeftSkipAnimation(prev => ({ ...prev, show: false }))
+        }, 800) // Slightly longer for video change
+      }, 10)
+      
+      // Call the callback after animation starts
+      setTimeout(() => {
+        onPreviousVideo()
+      }, 200)
+    }
+  }
+
   const handleSkipWithAnimation = (seconds, side) => {
     skip(seconds)
     
-    // Clear any existing animation on the same side
     if (side === 'left') {
-      setLeftSkipAnimation(prev => ({
-        show: false,
-        amount: 0,
-        key: prev.key + 1
-      }))
+      // Clear any existing animation
+      setLeftSkipAnimation(prev => ({ ...prev, show: false }))
       
       // Force re-render with setTimeout
       setTimeout(() => {
         setLeftSkipAnimation({
           show: true,
           amount: seconds,
-          key: Date.now()
+          key: Date.now(),
+          type: 'skip'
         })
       }, 10)
       
@@ -479,18 +618,16 @@ const VideoPlayer = ({ video }) => {
       }, 600)
       
     } else if (side === 'right') {
-      setRightSkipAnimation(prev => ({
-        show: false,
-        amount: 0,
-        key: prev.key + 1
-      }))
+      // Clear any existing animation
+      setRightSkipAnimation(prev => ({ ...prev, show: false }))
       
       // Force re-render with setTimeout
       setTimeout(() => {
         setRightSkipAnimation({
           show: true,
           amount: seconds,
-          key: Date.now()
+          key: Date.now(),
+          type: 'skip'
         })
       }, 10)
       
@@ -655,6 +792,7 @@ const VideoPlayer = ({ video }) => {
         className="video-player__element"
         src={`http://localhost:5000/api/videos/stream/${encodeURIComponent(video.relativePath || video.id)}`}
         onTimeUpdate={handleTimeUpdate}
+        loop={loopSingle}
       />
       
       {/* Play/Pause Animation Overlay - Center */}
@@ -673,6 +811,15 @@ const VideoPlayer = ({ video }) => {
         </div>
       </div>
 
+      {/* Loop Animation Overlay */}
+      <div className={`animation-overlay center-animation ${showLoopAnimation ? 'active' : ''}`}>
+        <div className="animation-icon">
+          <div className="loop-icon-animation">
+            <Repeat1 size={40} />
+          </div>
+        </div>
+      </div>
+
       {/* Left Skip Animation Overlay */}
       <div 
         key={`left-${leftSkipAnimation.key}`}
@@ -683,7 +830,9 @@ const VideoPlayer = ({ video }) => {
             <ChevronLeft size={36} />
           </div>
           <div className="skip-time">
-            {leftSkipAnimation.amount < 0 ? '' : '-'}-{Math.abs(leftSkipAnimation.amount)}s
+            {leftSkipAnimation.type === 'skip' 
+              ? `${leftSkipAnimation.amount < 0 ? '' : '-'}${Math.abs(leftSkipAnimation.amount)}s`
+              : leftSkipAnimation.amount}
           </div>
         </div>
       </div>
@@ -698,7 +847,9 @@ const VideoPlayer = ({ video }) => {
             <ChevronRight size={36} />
           </div>
           <div className="skip-time">
-            +{Math.abs(rightSkipAnimation.amount)}s
+            {rightSkipAnimation.type === 'skip' 
+              ? `${rightSkipAnimation.amount}s`
+              : rightSkipAnimation.amount}
           </div>
         </div>
       </div>
@@ -727,6 +878,8 @@ const VideoPlayer = ({ video }) => {
               • Press and hold <span className="key-highlight">Spacebar</span> or <span className="key-highlight">Mouse</span> for {settings.tempSpeedAmount}x speed
               <br />
               • <span className="key-highlight">Double click</span> to toggle fullscreen
+              <br />
+              • <span className="key-highlight">{settings.prevVideoKey.toUpperCase()}</span>/<span className="key-highlight">{settings.nextVideoKey.toUpperCase()}</span> for previous/next video
             </div>
           </div>
           <button 
@@ -772,6 +925,19 @@ const VideoPlayer = ({ video }) => {
               </>
             )}
 
+            {/* NEW: Previous/Next Video Buttons */}
+            {settings.showPlaylistControls && onPreviousVideo && (
+              <button className="control-btn" onClick={handlePreviousVideo}>
+                <SkipBack size={20} />
+              </button>
+            )}
+            
+            {settings.showPlaylistControls && onNextVideo && (
+              <button className="control-btn" onClick={handleNextVideo}>
+                <SkipForward size={20} />
+              </button>
+            )}
+
             <div className="volume-control">
               <button className="control-btn" onClick={toggleMute}>
                 {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -788,6 +954,15 @@ const VideoPlayer = ({ video }) => {
                 />
               )}
             </div>
+
+            {/* NEW: Loop Button */}
+            <button 
+              className={`control-btn ${loopSingle ? 'active' : ''}`} 
+              onClick={toggleLoop}
+              title={`Loop: ${loopSingle ? 'ON' : 'OFF'}`}
+            >
+              {loopSingle ? <Repeat1 size={20} /> : <Repeat size={20} />}
+            </button>
 
             {settings.showTimeDisplay && (
               <div className="time-display">

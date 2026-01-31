@@ -41,6 +41,21 @@
   border-bottom: 1px solid #303030;
 }
 
+/* NEW: Navigation info */
+.watch__navigation-info {
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(62, 166, 255, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #3ea6ff;
+}
+
+.nav-info-text {
+  color: #3ea6ff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .watch__actions {
   display: flex;
   justify-content: space-between;
@@ -53,6 +68,7 @@
 .watch__left-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
@@ -76,6 +92,17 @@
 
 .like-btn {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* NEW: Navigation buttons */
+.nav-btn {
+  background-color: rgba(62, 166, 255, 0.2);
+  color: #3ea6ff;
+  border: 1px solid rgba(62, 166, 255, 0.3);
+}
+
+.nav-btn:hover {
+  background-color: rgba(62, 166, 255, 0.3);
 }
 
 .watch__channel {

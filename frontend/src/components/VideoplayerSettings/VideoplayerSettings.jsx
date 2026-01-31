@@ -434,6 +434,78 @@ const VideoPlayerSettings = () => {
                   </label>
                 </div>
               </div>
+
+              {/* NEW: Auto-play and Loop Settings */}
+              <div className="settings-section">
+                <h2 className="section-title">Auto-play & Loop</h2>
+                <div className="settings-grid">
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={draftSettings.autoPlayNext}
+                        onChange={(e) => updateDraftSetting('autoPlayNext', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <div className="checkbox-content">
+                        <div className="checkbox-title">Auto-play next video</div>
+                        <div className="checkbox-description">
+                          Automatically play next video when current ends
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={draftSettings.loopSingle}
+                        onChange={(e) => updateDraftSetting('loopSingle', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <div className="checkbox-content">
+                        <div className="checkbox-title">Loop single video</div>
+                        <div className="checkbox-description">
+                          Loop current video when it ends
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={draftSettings.showPlaylistControls}
+                        onChange={(e) => updateDraftSetting('showPlaylistControls', e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <div className="checkbox-content">
+                        <div className="checkbox-title">Show playlist controls</div>
+                        <div className="checkbox-description">
+                          Show next/previous video buttons in player controls
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="setting-group">
+                    <label>Auto-play Delay</label>
+                    <div className="input-with-unit">
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.5"
+                        value={draftSettings.autoPlayDelay}
+                        onChange={(e) => updateDraftSetting('autoPlayDelay', parseFloat(e.target.value))}
+                      />
+                      <span className="unit">seconds</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -542,6 +614,21 @@ const VideoPlayerSettings = () => {
                     value={draftSettings.fullscreenKey}
                     onChange={(value) => updateDraftSetting('fullscreenKey', value)}
                     description="Toggle fullscreen"
+                  />
+                  
+                  {/* NEW: Next/Previous Video Shortcuts */}
+                  <KeyBindingInput
+                    label="Previous Video"
+                    value={draftSettings.prevVideoKey}
+                    onChange={(value) => updateDraftSetting('prevVideoKey', value)}
+                    description="Play previous video"
+                  />
+                  
+                  <KeyBindingInput
+                    label="Next Video"
+                    value={draftSettings.nextVideoKey}
+                    onChange={(value) => updateDraftSetting('nextVideoKey', value)}
+                    description="Play next video"
                   />
                 </div>
               </div>

@@ -23,6 +23,23 @@ const Watch = ({ videos, fetchVideos }) => {
     setLoading(false)
   }, [id, videos])
 
+  // Get current video index and next/previous videos
+  const currentIndex = videos.findIndex(v => v.id === id)
+  const nextVideo = currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null
+  const previousVideo = currentIndex > 0 ? videos[currentIndex - 1] : null
+
+  const handleNextVideo = () => {
+    if (nextVideo) {
+      navigate(`/watch/${encodeURIComponent(nextVideo.id)}`)
+    }
+  }
+
+  const handlePreviousVideo = () => {
+    if (previousVideo) {
+      navigate(`/watch/${encodeURIComponent(previousVideo.id)}`)
+    }
+  }
+
   const handleMoveToTrash = async () => {
     if (!video) return
     
@@ -38,8 +55,12 @@ const Watch = ({ videos, fetchVideos }) => {
         alert('Video moved to trash successfully!')
         // Refresh video list
         if (fetchVideos) fetchVideos()
-        // Navigate back to home
-        navigate('/')
+        // Navigate to next video if available, otherwise home
+        if (nextVideo) {
+          navigate(`/watch/${encodeURIComponent(nextVideo.id)}`)
+        } else {
+          navigate('/')
+        }
       } else {
         alert('Failed to move video to trash: ' + data.error)
       }
@@ -67,8 +88,12 @@ const Watch = ({ videos, fetchVideos }) => {
         alert('Video permanently deleted!')
         // Refresh video list
         if (fetchVideos) fetchVideos()
-        // Navigate back to home
-        navigate('/')
+        // Navigate to next video if available, otherwise home
+        if (nextVideo) {
+          navigate(`/watch/${encodeURIComponent(nextVideo.id)}`)
+        } else {
+          navigate('/')
+        }
       } else {
         alert('Failed to delete video: ' + data.error)
       }
@@ -148,6 +173,9 @@ const Watch = ({ videos, fetchVideos }) => {
             <div className="modal-body">
               <p>Move <strong>"{video.title}"</strong> to trash folder?</p>
               <p className="info-text">📁 The video will be moved to <code>/public/trash/</code> folder. You can restore it manually from there.</p>
+              {nextVideo && (
+                <p className="info-text">▶️ Next video "{nextVideo.title}" will play automatically.</p>
+              )}
             </div>
             <div className="modal-actions">
               <button 
@@ -171,7 +199,12 @@ const Watch = ({ videos, fetchVideos }) => {
 
       <div className="watch__main">
         <div className="watch__player">
-          <VideoPlayer video={video} />
+          <VideoPlayer 
+            video={video} 
+            videos={videos}
+            onNextVideo={handleNextVideo}
+            onPreviousVideo={handlePreviousVideo}
+          />
         </div>
         
         <div className="watch__details">
@@ -184,6 +217,14 @@ const Watch = ({ videos, fetchVideos }) => {
               {video.category && (
                 <span className="watch__category">{categoryDisplay}</span>
               )}
+            </div>
+            
+            {/* Video Navigation Info */}
+            <div className="watch__navigation-info">
+              <span className="nav-info-text">
+                {previousVideo && `← Previous: ${previousVideo.title.substring(0, 30)}... `}
+                {nextVideo && `Next: ${nextVideo.title.substring(0, 30)}... →`}
+              </span>
             </div>
             
             {folderPath && (
@@ -215,6 +256,27 @@ const Watch = ({ videos, fetchVideos }) => {
                 <Download size={20} />
                 <span>Save</span>
               </button>
+
+              {/* Quick Navigation Buttons */}
+              {previousVideo && (
+                <button 
+                  className="action-btn nav-btn"
+                  onClick={handlePreviousVideo}
+                  title="Previous Video"
+                >
+                  ← Prev
+                </button>
+              )}
+              
+              {nextVideo && (
+                <button 
+                  className="action-btn nav-btn"
+                  onClick={handleNextVideo}
+                  title="Next Video"
+                >
+                  Next →
+                </button>
+              )}
 
               {/* New Delete Buttons */}
               <button 
@@ -253,6 +315,7 @@ const Watch = ({ videos, fetchVideos }) => {
             
             <div className="watch__description">
               <p>{video.filename} • {video.size} • {video.type}</p>
+              <p>Video {currentIndex + 1} of {videos.length}</p>
               {video.tags && video.tags.length > 0 && (
                 <div className="watch__tags">
                   {video.tags.slice(0, 5).map((tag, index) => (

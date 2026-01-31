@@ -98,6 +98,11 @@
   transform: scale(0.95);
 }
 
+.control-btn.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #3ea6ff;
+}
+
 .volume-control {
   display: flex;
   align-items: center;
@@ -237,6 +242,17 @@
 
 .center-animation.active .pause-bar {
   transform: scaleY(1);
+}
+
+/* Loop Icon Animation */
+.loop-icon-animation {
+  color: white;
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Left Skip Animation */

@@ -41,6 +41,14 @@ const defaultSettings = {
   showTimeDisplay: true,
   controlsAutoHide: true,
   autoHideDelay: 3000,
+  
+  // NEW: Auto-play and loop settings
+  autoPlayNext: true,  // Auto play next video when current ends
+  loopSingle: false,   // Loop single video
+  showPlaylistControls: true, // Show next/previous buttons for playlists
+  nextVideoKey: 'n',   // Key to play next video
+  prevVideoKey: 'p',   // Key to play previous video
+  autoPlayDelay: 0,    // Delay before auto-playing next video (seconds)
 };
 
 const VideoPlayerSettingsContext = createContext();
