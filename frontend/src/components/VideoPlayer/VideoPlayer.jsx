@@ -80,23 +80,64 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
   const mouseHoldTimerRef = useRef(null)
   const isMouseHoldingRef = useRef(false)
 
+  // Auto-play effect when video changes
+  useEffect(() => {
+    // Reset video state when video changes
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    
+    // Clear any existing animations
+    setLeftSkipAnimation(prev => ({ ...prev, show: false }));
+    setRightSkipAnimation(prev => ({ ...prev, show: false }));
+    setShowPlayPauseAnimation(false);
+    setShowLoopAnimation(false);
+    
+    // Clear animation timeouts
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+    if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current);
+    if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current);
+    
+    // Auto-play the new video after a short delay
+    const autoPlayTimer = setTimeout(() => {
+      if (videoRef.current && settings.autoPlayNext) {
+        videoRef.current.play().then(() => {
+          setIsPlaying(true);
+          // Show play animation
+          setShowPlayPauseAnimation(true);
+          setTimeout(() => {
+            setShowPlayPauseAnimation(false);
+          }, 600);
+        }).catch(error => {
+          console.log("Auto-play prevented by browser. User interaction required.");
+          // Auto-play was prevented, we'll show the play button
+          setIsPlaying(false);
+        });
+      }
+    }, 300); // Small delay to ensure video is loaded
+    
+    return () => {
+      clearTimeout(autoPlayTimer);
+    };
+  }, [video, settings.autoPlayNext]);
+
   // Clean up animations when video changes
   useEffect(() => {
     // Clear all animations when video changes
-    setLeftSkipAnimation(prev => ({ ...prev, show: false }))
-    setRightSkipAnimation(prev => ({ ...prev, show: false }))
-    setShowPlayPauseAnimation(false)
-    setShowLoopAnimation(false)
+    setLeftSkipAnimation(prev => ({ ...prev, show: false }));
+    setRightSkipAnimation(prev => ({ ...prev, show: false }));
+    setShowPlayPauseAnimation(false);
+    setShowLoopAnimation(false);
     
     // Clear animation timeouts
-    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
-    if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current)
-    if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current)
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+    if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current);
+    if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current);
     
     return () => {
       // Cleanup when component unmounts
-      clearAllTimeouts()
-    }
+      clearAllTimeouts();
+    };
   }, [video]) // Run when video prop changes
 
   useEffect(() => {
@@ -145,7 +186,7 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
       clearAllTimeouts()
     }
-  }, [loopSingle, settings.autoPlayNext, settings.autoPlayDelay, onNextVideo])
+  }, [loopSingle, settings.autoPlayNext, settings.autoPlayDelay, onNextVideo, showSpacebarTooltip, settings.tempSpeedEnabled])
 
   const clearAllTimeouts = () => {
     if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
@@ -557,10 +598,8 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
         }, 800) // Slightly longer for video change
       }, 10)
       
-      // Call the callback after animation starts
-      setTimeout(() => {
-        onNextVideo()
-      }, 200)
+      // Call the callback immediately
+      onNextVideo()
     }
   }
 
@@ -587,10 +626,8 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
         }, 800) // Slightly longer for video change
       }, 10)
       
-      // Call the callback after animation starts
-      setTimeout(() => {
-        onPreviousVideo()
-      }, 200)
+      // Call the callback immediately
+      onPreviousVideo()
     }
   }
 
