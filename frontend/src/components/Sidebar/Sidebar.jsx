@@ -95,7 +95,7 @@ const Sidebar = ({ size, videos }) => {
   const allPlaylists = getAllPlaylists()
 
   const libraryItems = [
-    { icon: <Folder size={24} />, label: 'My Videos', path: '/category/' },
+    // { icon: <Folder size={24} />, label: 'My Videos', path: '/category/' },
     { icon: <Folder size={24} />, label: 'All Videos', path: '/category/all' },
     { 
       icon: <Trash2 size={24} />, 
