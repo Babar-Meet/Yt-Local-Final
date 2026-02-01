@@ -9,7 +9,8 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
     generated: 0,
     failed: 0,
     currentFile: '',
-    queueLength: 0
+    queueLength: 0,
+    remaining: thumbnailsNeeded
   });
   
   const [isSkipped, setIsSkipped] = useState(false);
@@ -17,7 +18,7 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
 
   // Poll for progress updates
   useEffect(() => {
-    if (isSkipped || progress.generated + progress.failed >= progress.total) return;
+    if (isSkipped) return;
 
     const fetchProgress = async () => {
       try {
@@ -31,11 +32,12 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
             generated: data.generated || 0,
             failed: data.failed || 0,
             currentFile: data.currentFile || '',
-            queueLength: data.queueLength || 0
+            queueLength: data.queueLength || 0,
+            remaining: data.remaining || (thumbnailsNeeded - (data.generated || 0) - (data.failed || 0))
           });
 
           // If generation is complete, auto-hide after 3 seconds
-          if (!data.isGenerating && (data.generated + data.failed) >= (data.totalToGenerate || thumbnailsNeeded)) {
+          if (!data.isGenerating && data.isComplete) {
             setTimeout(() => {
               if (onSkip) onSkip();
             }, 3000);
@@ -50,7 +52,7 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
     fetchProgress(); // Initial fetch
 
     return () => clearInterval(interval);
-  }, [isSkipped, progress.generated, progress.failed, progress.total, thumbnailsNeeded, onSkip]);
+  }, [isSkipped, thumbnailsNeeded, onSkip]);
 
   const handleSkip = () => {
     if (!showSkipWarning) {
@@ -69,7 +71,7 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
 
   const totalProcessed = progress.generated + progress.failed;
   const progressPercentage = progress.total > 0 ? (totalProcessed / progress.total) * 100 : 0;
-  const remaining = progress.total - totalProcessed;
+  const remaining = progress.remaining > 0 ? progress.remaining : progress.total - totalProcessed;
 
   // Don't show if no thumbnails needed or already completed
   if (thumbnailsNeeded === 0 || (totalProcessed >= progress.total && !progress.isGenerating)) {
@@ -137,7 +139,7 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
                       />
                     </div>
                     <span className="progress-text">
-                      {Math.round(progressPercentage)}% Complete
+                      {Math.round(progressPercentage)}% Complete ({totalProcessed}/{progress.total})
                     </span>
                   </div>
                 )}
@@ -146,7 +148,7 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
                   <div className="current-file">
                     <span className="current-file-label">Processing:</span>
                     <span className="current-file-name" title={progress.currentFile}>
-                      {progress.currentFile.split('/').pop()}
+                      {progress.currentFile.split('/').pop() || progress.currentFile}
                     </span>
                   </div>
                 )}
@@ -188,7 +190,7 @@ const ThumbnailGenerator = ({ onSkip, thumbnailsNeeded }) => {
         {totalProcessed >= progress.total && !progress.isGenerating && (
           <div className="completion-message">
             <CheckCircle size={20} color="#4CAF50" />
-            <span>Thumbnail generation complete! Page will refresh...</span>
+            <span>Thumbnail generation complete! Generated: {progress.generated}, Failed: {progress.failed}</span>
           </div>
         )}
       </div>

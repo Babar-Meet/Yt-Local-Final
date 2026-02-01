@@ -56,6 +56,9 @@ async function generateThumbnailForVideo(videoFile) {
   const { absolutePath, relativePath } = videoFile;
   
   try {
+    // Update current file in state BEFORE starting generation
+    thumbnailState.currentFile = relativePath;
+    
     // Check if file exists
     if (!fs.existsSync(absolutePath)) {
       console.log(`Video file not found: ${absolutePath}`);
@@ -112,9 +115,11 @@ async function processThumbnailQueue() {
   if (videosNeedingThumbnails.length === 0) {
     console.log('No thumbnails needed.');
     thumbnailState.isGenerating = false;
+    thumbnailState.currentFile = '';
     return;
   }
   
+  // Reset state for new run
   thumbnailState.isGenerating = true;
   thumbnailState.totalToGenerate = videosNeedingThumbnails.length;
   thumbnailState.generated = 0;
@@ -122,46 +127,46 @@ async function processThumbnailQueue() {
   thumbnailState.queue = videosNeedingThumbnails.map(v => v.relativePath);
   thumbnailState.completed.clear();
   thumbnailState.failedSet.clear();
+  thumbnailState.currentFile = '';
   
   console.log(`Starting thumbnail generation for ${videosNeedingThumbnails.length} videos`);
   
-  // Process in batches of 2 to avoid overloading
-  const batchSize = 2;
-  
-  for (let i = 0; i < videosNeedingThumbnails.length; i += batchSize) {
-    const batch = videosNeedingThumbnails.slice(i, i + batchSize);
+  // Process videos sequentially to better track progress
+  for (let i = 0; i < videosNeedingThumbnails.length; i++) {
+    const videoFile = videosNeedingThumbnails[i];
     
-    // Update current file
-    thumbnailState.currentFile = batch[0]?.relativePath || '';
-    
-    // Process batch in parallel
-    const promises = batch.map(async (videoFile) => {
-      try {
-        const success = await generateThumbnailForVideo(videoFile);
-        
-        if (success) {
-          thumbnailState.generated++;
-          thumbnailState.completed.add(videoFile.relativePath);
-        } else {
-          thumbnailState.failed++;
-          thumbnailState.failedSet.add(videoFile.relativePath);
-        }
-        
-        // Remove from queue
-        thumbnailState.queue = thumbnailState.queue.filter(path => path !== videoFile.relativePath);
-      } catch (error) {
-        console.error(`Error processing ${videoFile.relativePath}:`, error);
+    try {
+      const success = await generateThumbnailForVideo(videoFile);
+      
+      if (success) {
+        thumbnailState.generated++;
+        thumbnailState.completed.add(videoFile.relativePath);
+      } else {
         thumbnailState.failed++;
         thumbnailState.failedSet.add(videoFile.relativePath);
-        thumbnailState.queue = thumbnailState.queue.filter(path => path !== videoFile.relativePath);
       }
-    });
-    
-    await Promise.all(promises);
+      
+      // Remove from queue
+      thumbnailState.queue = thumbnailState.queue.filter(path => path !== videoFile.relativePath);
+      
+      // Clear current file
+      thumbnailState.currentFile = '';
+      
+      // Small delay between videos to avoid overloading
+      if (i < videosNeedingThumbnails.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+    } catch (error) {
+      console.error(`Error processing ${videoFile.relativePath}:`, error);
+      thumbnailState.failed++;
+      thumbnailState.failedSet.add(videoFile.relativePath);
+      thumbnailState.queue = thumbnailState.queue.filter(path => path !== videoFile.relativePath);
+      thumbnailState.currentFile = '';
+    }
   }
   
   thumbnailState.isGenerating = false;
-  thumbnailState.currentFile = '';
   console.log(`Thumbnail generation completed. Generated: ${thumbnailState.generated}, Failed: ${thumbnailState.failed}`);
 }
 
@@ -180,44 +185,15 @@ exports.startBackgroundThumbnailGeneration = async (videoFiles) => {
   processThumbnailQueue().catch(error => {
     console.error('Thumbnail generation failed:', error);
     thumbnailState.isGenerating = false;
+    thumbnailState.currentFile = '';
   });
   
-  return { success: true, started: true, total: getVideosNeedingThumbnails(videoFiles).length };
-};
-
-// Manually trigger thumbnail generation
-exports.triggerThumbnailGeneration = async (videoFiles) => {
-  if (thumbnailState.isGenerating) {
-    return { success: false, message: 'Thumbnail generation already in progress' };
-  }
-  
-  thumbnailState.allVideoFiles = videoFiles;
   const videosNeedingThumbnails = getVideosNeedingThumbnails(videoFiles);
-  
-  if (videosNeedingThumbnails.length === 0) {
-    return { success: true, message: 'No thumbnails needed', total: 0 };
-  }
-  
-  // Reset state for new generation
-  thumbnailState.isGenerating = true;
-  thumbnailState.totalToGenerate = videosNeedingThumbnails.length;
-  thumbnailState.generated = 0;
-  thumbnailState.failed = 0;
-  thumbnailState.queue = videosNeedingThumbnails.map(v => v.relativePath);
-  thumbnailState.completed.clear();
-  thumbnailState.failedSet.clear();
-  thumbnailState.currentFile = '';
-  
-  // Start in background
-  setTimeout(async () => {
-    await processThumbnailQueue();
-  }, 100);
   
   return { 
     success: true, 
     started: true, 
-    total: videosNeedingThumbnails.length,
-    message: `Started generating ${videosNeedingThumbnails.length} thumbnails`
+    total: videosNeedingThumbnails.length
   };
 };
 
@@ -234,20 +210,12 @@ exports.getThumbnailState = () => {
     currentFile: thumbnailState.currentFile,
     queueLength: thumbnailState.queue.length,
     isComplete: isComplete,
-    totalProcessed: totalProcessed
+    totalProcessed: totalProcessed,
+    remaining: Math.max(0, thumbnailState.totalToGenerate - totalProcessed)
   };
 };
 
 // Check how many thumbnails are needed
 exports.getThumbnailsNeededCount = (videoFiles) => {
   return getVideosNeedingThumbnails(videoFiles).length;
-};
-
-// Get detailed progress info
-exports.getDetailedProgress = () => {
-  return {
-    ...exports.getThumbnailState(),
-    completedFiles: Array.from(thumbnailState.completed),
-    failedFiles: Array.from(thumbnailState.failedSet)
-  };
 };

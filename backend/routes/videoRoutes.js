@@ -26,4 +26,7 @@ router.get('/trash', videoController.getTrashVideos);
 // Empty trash
 router.delete('/trash/empty', videoController.emptyTrash);
 
+// NEW: Get thumbnail generation progress
+router.get('/thumbnail-progress', videoController.getThumbnailProgress);
+
 module.exports = router;
