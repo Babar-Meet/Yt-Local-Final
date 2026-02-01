@@ -1,0 +1,8 @@
+.progress-page {
+  color: var(--text-primary, #cdd6f4);
+}
+
+.progress-page h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}

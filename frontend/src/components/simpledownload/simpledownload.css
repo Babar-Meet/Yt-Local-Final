@@ -1,0 +1,8 @@
+.download-subpage {
+  color: var(--text-primary, #0f0f0f);
+}
+
+.download-subpage h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}

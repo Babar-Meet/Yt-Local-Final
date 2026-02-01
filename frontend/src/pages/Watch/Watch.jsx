@@ -222,8 +222,9 @@ const Watch = ({ videos, fetchVideos }) => {
             {/* Video Navigation Info */}
             <div className="watch__navigation-info">
               <span className="nav-info-text">
-                {previousVideo && `← Previous: ${previousVideo.title.substring(0, 30)}... `}
-                {nextVideo && `Next: ${nextVideo.title.substring(0, 30)}... →`}
+                {previousVideo && `Previous : ${previousVideo.title.substring(0, 90)}... `}
+                <br />
+                {nextVideo && `Next  : ${nextVideo.title.substring(0, 90)}...`}
               </span>
             </div>
             
@@ -264,7 +265,7 @@ const Watch = ({ videos, fetchVideos }) => {
                   onClick={handlePreviousVideo}
                   title="Previous Video"
                 >
-                  ← Prev
+                  Prev
                 </button>
               )}
               

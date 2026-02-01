@@ -45,13 +45,13 @@
 .watch__navigation-info {
   margin: 10px 0;
   padding: 10px;
-  background: rgba(62, 166, 255, 0.1);
+  background: rgba(187, 209, 228, 0.1);
   border-radius: 8px;
-  border-left: 3px solid #3ea6ff;
+  border-left: 3px solid #aaaaaa;
 }
 
 .nav-info-text {
-  color: #3ea6ff;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 500;
 }
@@ -96,13 +96,13 @@
 
 /* NEW: Navigation buttons */
 .nav-btn {
-  background-color: rgba(62, 166, 255, 0.2);
-  color: #3ea6ff;
+  background-color: #272727;
+  color: #ffffff;
   border: 1px solid rgba(62, 166, 255, 0.3);
 }
 
 .nav-btn:hover {
-  background-color: rgba(62, 166, 255, 0.3);
+  background-color: #3d3d3d;
 }
 
 .watch__channel {
