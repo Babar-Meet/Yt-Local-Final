@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "./config";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { VideoPlayerSettingsProvider } from "./Context/VideoPlayerSettingsContext";
 import { DownloadProvider } from "./Context/DownloadContext";
 import Header from "./components/Header/Header";
@@ -86,71 +86,110 @@ function App() {
     <VideoPlayerSettingsProvider>
       <DownloadProvider>
         <Router>
-          <div className="app">
-            <Header toggleSidebar={toggleSidebar} />
-            <div className="app__main">
-              <Sidebar
-                size={sidebarSize}
-                categories={categories}
-                videos={videos}
-              />
-              <div
-                className={`app__content ${sidebarSize === "large" ? "sidebar-open" : ""}`}
-              >
-                {showThumbnailGenerator && (
-                  <ThumbnailGenerator
-                    onSkip={handleSkipThumbnailGeneration}
-                    thumbnailsNeeded={thumbnailsNeeded}
-                  />
-                )}
-                
-                <Routes>
-                  <Route
-                    path="/"
-                    element={
-                      <Home
-                        videos={videos}
-                        categories={categories}
-                        loading={loading}
-                        fetchVideos={fetchVideos}
-                        thumbnailsNeeded={thumbnailsNeeded}
-                        showThumbnailGenerator={showThumbnailGenerator}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/watch/:id"
-                    element={<Watch videos={videos} fetchVideos={fetchVideos} />}
-                  />
-                  <Route
-                    path="/VideoplayerSettings"
-                    element={<VideoplayerSettings />}
-                  />
-                  <Route
-                    path="/category/:categoryPath?"
-                    element={
-                      <CategoryPage
-                        videos={videos}
-                        categories={categories}
-                        fetchVideos={fetchVideos}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/trash"
-                    element={<Trash fetchVideos={fetchVideos} />}
-                  />
-                  <Route
-                    path="/download/*"
-                    element={<Download />}
-                  />
-                </Routes>
-              </div>
-            </div>
-          </div>
+          <AppContent 
+            sidebarSize={sidebarSize} 
+            setSidebarSize={setSidebarSize}
+            toggleSidebar={toggleSidebar}
+            videos={videos}
+            categories={categories}
+            loading={loading}
+            fetchVideos={fetchVideos}
+            thumbnailsNeeded={thumbnailsNeeded}
+            showThumbnailGenerator={showThumbnailGenerator}
+            handleSkipThumbnailGeneration={handleSkipThumbnailGeneration}
+          />
         </Router>
       </DownloadProvider>
     </VideoPlayerSettingsProvider>
+  );
+}
+
+function AppContent({ 
+  sidebarSize, 
+  setSidebarSize, 
+  toggleSidebar, 
+  videos, 
+  categories, 
+  loading, 
+  fetchVideos, 
+  thumbnailsNeeded, 
+  showThumbnailGenerator,
+  handleSkipThumbnailGeneration
+}) {
+  const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
+
+  useEffect(() => {
+    // If entering a watch page, hide sidebar
+    if (location.pathname.startsWith('/watch/') && !prevPathRef.current.startsWith('/watch/')) {
+      setSidebarSize("hidden");
+    }
+    prevPathRef.current = location.pathname;
+  }, [location.pathname, setSidebarSize]);
+
+  return (
+    <div className="app">
+      <Header toggleSidebar={toggleSidebar} />
+      <div className="app__main">
+        <Sidebar
+          size={sidebarSize}
+          categories={categories}
+          videos={videos}
+        />
+        <div
+          className={`app__content ${sidebarSize === "large" ? "sidebar-open" : ""}`}
+        >
+          {showThumbnailGenerator && (
+            <ThumbnailGenerator
+              onSkip={handleSkipThumbnailGeneration}
+              thumbnailsNeeded={thumbnailsNeeded}
+            />
+          )}
+          
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <Home
+                  videos={videos}
+                  categories={categories}
+                  loading={loading}
+                  fetchVideos={fetchVideos}
+                  thumbnailsNeeded={thumbnailsNeeded}
+                  showThumbnailGenerator={showThumbnailGenerator}
+                />
+              }
+            />
+            <Route
+              path="/watch/:id"
+              element={<Watch videos={videos} fetchVideos={fetchVideos} />}
+            />
+            <Route
+              path="/VideoplayerSettings"
+              element={<VideoplayerSettings />}
+            />
+            <Route
+              path="/category/:categoryPath?"
+              element={
+                <CategoryPage
+                  videos={videos}
+                  categories={categories}
+                  fetchVideos={fetchVideos}
+                />
+              }
+            />
+            <Route
+              path="/trash"
+              element={<Trash fetchVideos={fetchVideos} />}
+            />
+            <Route
+              path="/download/*"
+              element={<Download />}
+            />
+          </Routes>
+        </div>
+      </div>
+    </div>
   );
 }
 

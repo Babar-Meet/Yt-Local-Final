@@ -6,6 +6,16 @@
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-player.cinema-mode {
+  aspect-ratio: auto;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0; /* YouTube's cinema mode usually doesn't have rounded corners */
 }
 
 .video-player__element {

@@ -3,7 +3,7 @@ import { API_BASE_URL } from '../../config'
 import { useParams, useNavigate } from 'react-router-dom'
 import VideoPlayer from '../../components/VideoPlayer/VideoPlayer'
 import VideoSidebar from '../../components/VideoSidebar/VideoSidebar'
-import { ThumbsUp, ThumbsDown, Share2, Download, MoreVertical, Trash2, Trash, AlertTriangle } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, Share2, Download, MoreVertical, Trash2, Trash, AlertTriangle, Monitor } from 'lucide-react'
 import './Watch.css'
 
 const Watch = ({ videos, fetchVideos }) => {
@@ -14,6 +14,20 @@ const Watch = ({ videos, fetchVideos }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showTrashConfirm, setShowTrashConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [cinemaMode, setCinemaMode] = useState(false)
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 't' || e.key === 'T') {
+        // Prevent if typing in an input/textarea
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          setCinemaMode(prev => !prev)
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     // Find video by id (which is now the relative path)
@@ -130,7 +144,7 @@ const Watch = ({ videos, fetchVideos }) => {
   const folderPath = video.folder ? video.folder.split('/').filter(Boolean).join(' / ') : ''
 
   return (
-    <div className="watch">
+    <div className={`watch ${cinemaMode ? 'cinema-mode' : ''}`}>
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="modal-overlay">
@@ -205,6 +219,8 @@ const Watch = ({ videos, fetchVideos }) => {
             videos={videos}
             onNextVideo={handleNextVideo}
             onPreviousVideo={handlePreviousVideo}
+            cinemaMode={cinemaMode}
+            onToggleCinemaMode={() => setCinemaMode(!cinemaMode)}
           />
         </div>
         
@@ -300,6 +316,16 @@ const Watch = ({ videos, fetchVideos }) => {
               </button>
             </div>
             
+            <button 
+              className={`action-btn cinema-toggle-btn ${cinemaMode ? 'active' : ''}`}
+              onClick={() => setCinemaMode(!cinemaMode)}
+              title="Cinema Mode (t)"
+            >
+              <Monitor size={20} />
+              <span>Cinema</span>
+            </button>
+
+
             <button className="action-btn menu-btn">
               <MoreVertical size={20} />
             </button>

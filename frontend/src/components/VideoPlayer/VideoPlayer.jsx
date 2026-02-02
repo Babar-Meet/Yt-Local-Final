@@ -17,14 +17,15 @@ import {
   Repeat1,
   Check,
   RotateCcw,
-  X
+  X,
+  Monitor
 } from 'lucide-react'
 import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
 import './VideoPlayer.css'
 
 const SPEED_OPTIONS = [3, 2.5, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5, 0.25, 0.01]
 
-const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
+const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo, cinemaMode, onToggleCinemaMode }) => {
   const { settings } = useVideoPlayerSettings()
   
   const videoRef = useRef(null)
@@ -943,7 +944,7 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
   return (
     <div 
       ref={videoContainerRef}
-      className="video-player" 
+      className={`video-player ${cinemaMode ? 'cinema-mode' : ''} ${isFullscreen ? 'fullscreen' : ''} ${!isPlaying ? 'paused' : ''} ${showControls ? 'show-controls' : ''}`} 
       onMouseMove={handleMouseMove}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -1189,9 +1190,15 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
               </button>
             </div>
             
-            <button className="control-btn">
-              <Settings size={20} />
-            </button>
+            {onToggleCinemaMode && (
+              <button 
+                className={`control-btn ${cinemaMode ? 'active' : ''}`} 
+                onClick={onToggleCinemaMode}
+                title="Cinema Mode (t)"
+              >
+                <Monitor size={20} />
+              </button>
+            )}
             
             <button className="control-btn" onClick={toggleFullscreen}>
               {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
