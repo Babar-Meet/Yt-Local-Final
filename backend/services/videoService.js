@@ -4,6 +4,33 @@ const { formatFileSize } = require('../utils/format');
 const ffmpeg = require('fluent-ffmpeg');
 
 const thumbnailsDir = path.join(__dirname, '../public/thumbnails');
+const progressFile = path.join(__dirname, '../public/video-progress.json');
+
+// Helper to get all progress data
+exports.getAllProgress = () => {
+  try {
+    if (fs.existsSync(progressFile)) {
+      const data = fs.readFileSync(progressFile, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading progress file:', error);
+  }
+  return {};
+};
+
+// Helper to save progress
+exports.saveProgress = (videoId, timestamp) => {
+  try {
+    const progress = this.getAllProgress();
+    progress[videoId] = timestamp;
+    fs.writeFileSync(progressFile, JSON.stringify(progress, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error saving progress:', error);
+    return false;
+  }
+};
 
 // Get video information
 exports.getVideoInfo = (filePath, relativePath) => {
@@ -35,10 +62,14 @@ exports.getVideoInfo = (filePath, relativePath) => {
   // Generate duration
   const duration = this.generateRandomDuration();
   
-  // Generate tags/categories based on folder structure
   const tags = this.generateTags(relativePath);
   
+  // Get saved progress
+  const allProgress = this.getAllProgress();
+  const progress = allProgress[relativePath.replace(/\\/g, '/')] || 0;
+
   return {
+    progress: progress,
     id: relativePath.replace(/\\/g, '/'), // Use forward slashes for URLs
     filename: name,
     title: cleanTitle,

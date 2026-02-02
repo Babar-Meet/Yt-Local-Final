@@ -15,7 +15,9 @@ import {
   SkipBack,
   Repeat,
   Repeat1,
-  Check
+  Check,
+  RotateCcw,
+  X
 } from 'lucide-react'
 import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
 import './VideoPlayer.css'
@@ -62,10 +64,16 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
     type: 'skip' // 'skip' or 'video'
   })
   
-  // Speed indicator state
   const [showSpeedIndicator, setShowSpeedIndicator] = useState(false)
   const [speedIndicatorValue, setSpeedIndicatorValue] = useState(1)
   const [showSpeedMenu, setShowSpeedMenu] = useState(false)
+  
+  // Resume state
+  const [showResumePopup, setShowResumePopup] = useState(false)
+  const [resumeTimestamp, setResumeTimestamp] = useState(0)
+  const [resumeCountdown, setResumeCountdown] = useState(5)
+  const lastSavedTimeRef = useRef(0)
+  const resumeTimerRef = useRef(null)
   
   // Tooltip state
   const [showSpacebarTooltip, setShowSpacebarTooltip] = useState(true)
@@ -128,22 +136,116 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
 
   // Clean up animations when video changes
   useEffect(() => {
+    // Save progress of previous video before switching
+    if (videoRef.current && currentTime > 5 && duration > 0) {
+      saveProgress(videoRef.current.currentTime);
+    }
+
     // Clear all animations when video changes
     setLeftSkipAnimation(prev => ({ ...prev, show: false }));
     setRightSkipAnimation(prev => ({ ...prev, show: false }));
     setShowPlayPauseAnimation(false);
     setShowLoopAnimation(false);
+    setShowResumePopup(false);
+    setResumeCountdown(5);
     
     // Clear animation timeouts
     if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
     if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current);
     if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current);
+    if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
     
     return () => {
       // Cleanup when component unmounts
       clearAllTimeouts();
+      if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
     };
   }, [video]) // Run when video prop changes
+
+  // Check for saved progress on load
+  useEffect(() => {
+    const checkSavedProgress = async () => {
+      if (!video) return;
+
+      try {
+        // Fetch saved progress
+        const response = await fetch(`${API_BASE_URL}/api/videos/file/${video.id || video.relativePath}`);
+        const data = await response.json();
+        
+        if (data.success && data.video && data.video.progress > 5) {
+          const savedTime = data.video.progress;
+          // Only show if saved time is not near the end (let's say 95% or < 30s remaining)
+          const isNearEnd = data.video.duration && (savedTime > (data.video.duration - 15)); // Assumption if duration is in seconds
+          
+          // Since duration might be a string "MM:SS" from backend or undefined initially, 
+          // we rely on the client-side check after metadata loaded, OR just trust the saved time if it looks valid
+          
+          if (!isNearEnd) {
+             setResumeTimestamp(savedTime);
+             setShowResumePopup(true);
+             setIsPlaying(false); // Pause to ask user
+             if (videoRef.current) videoRef.current.pause();
+
+             // Start countdown
+             let count = 5;
+             setResumeCountdown(count);
+             if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+             
+             resumeTimerRef.current = setInterval(() => {
+               count -= 0.1;
+               setResumeCountdown(Math.max(0, count));
+               
+               if (count <= 0) {
+                 clearInterval(resumeTimerRef.current);
+                 handleStartOver(); // Timeout -> Start from 0
+               }
+             }, 100);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching progress:", error);
+      }
+    };
+
+    checkSavedProgress();
+  }, [video.id]);
+
+  const saveProgress = async (time) => {
+    if (!video || !time) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/videos/progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoId: video.id || video.relativePath,
+          timestamp: time
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving progress:", error);
+    }
+  };
+
+  const handleResume = () => {
+    if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+    setShowResumePopup(false);
+    if (videoRef.current) {
+      videoRef.current.currentTime = resumeTimestamp;
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
+  const handleStartOver = () => {
+    if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+    setShowResumePopup(false);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
 
   useEffect(() => {
     const videoElement = videoRef.current
@@ -682,7 +784,14 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
   }
 
   const handleTimeUpdate = () => {
-    setCurrentTime(videoRef.current.currentTime)
+    const time = videoRef.current.currentTime;
+    setCurrentTime(time);
+    
+    // Save progress logic (every 5 seconds)
+    if (Math.abs(time - lastSavedTimeRef.current) > 5) {
+      saveProgress(time);
+      lastSavedTimeRef.current = time;
+    }
   }
 
   const handleSeek = (e) => {
@@ -904,6 +1013,32 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
           </div>
         </div>
       </div>
+
+      {/* Resume Popup */}
+      {showResumePopup && (
+        <div className="resume-popup">
+          <div className="resume-header">
+            <div>
+              <div className="resume-title">Resume Playing?</div>
+              <div className="resume-subtitle">You left off at {formatTime(resumeTimestamp)}</div>
+            </div>
+            <button className="resume-close" onClick={handleStartOver}>
+              <X size={16} />
+            </button>
+          </div>
+          
+          <div className="resume-actions">
+            <button className="resume-btn primary" onClick={handleResume}>
+              <Play size={16} fill="black" /> Resume
+            </button>
+            <button className="resume-btn secondary" onClick={handleStartOver}>
+              <RotateCcw size={16} /> Start Over
+            </button>
+          </div>
+          
+          <div className="resume-timeout-bar" style={{ width: `${(resumeCountdown / 5) * 100}%` }}></div>
+        </div>
+      )}
 
       {/* Speed Indicator Overlay */}
       <div className={`animation-overlay speed-indicator ${showSpeedIndicator ? 'active' : ''}`}>

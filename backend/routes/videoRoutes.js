@@ -29,4 +29,7 @@ router.delete('/trash/empty', videoController.emptyTrash);
 // NEW: Get thumbnail generation progress
 router.get('/thumbnail-progress', videoController.getThumbnailProgress);
 
+// NEW: Save video progress
+router.post('/progress', videoController.saveVideoProgress);
+
 module.exports = router;

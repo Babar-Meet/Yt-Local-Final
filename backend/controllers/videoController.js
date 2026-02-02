@@ -112,6 +112,31 @@ exports.getThumbnailProgress = async (req, res) => {
   }
 };
 
+// Save video progress
+exports.saveVideoProgress = async (req, res) => {
+  try {
+    const { videoId, timestamp } = req.body;
+    
+    if (!videoId || timestamp === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing videoId or timestamp' 
+      });
+    }
+
+    const success = videoService.saveProgress(videoId, timestamp);
+    
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ success: false, error: 'Failed to save progress' });
+    }
+  } catch (error) {
+    console.error('Error saving progress:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+};
+
 // The rest of your controller functions remain exactly the same...
 // Create categories from folder structure
 function createCategories(videos) {

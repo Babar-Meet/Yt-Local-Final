@@ -641,3 +641,119 @@
 .speed-menu-item svg {
   opacity: 1;
 }
+
+/* Resume Popup */
+.resume-popup {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(28, 28, 28, 0.95);
+  border-radius: 12px;
+  padding: 20px;
+  width: 320px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 50;
+  animation: slideInRight 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.resume-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.resume-title {
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.resume-subtitle {
+  color: #aaaaaa;
+  font-size: 13px;
+}
+
+.resume-close {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  cursor: pointer;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.resume-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.resume-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.resume-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.resume-btn.primary {
+  background: #3ea6ff;
+  color: black;
+}
+
+.resume-btn.primary:hover {
+  background: #65b8ff;
+}
+
+.resume-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.resume-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.resume-timeout-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #3ea6ff;
+  width: 0%; /* Starts at 0, animates to 100% */
+  /* Animation handled in JS/inline style or keyframes if fixed duration */
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
