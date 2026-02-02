@@ -14,10 +14,13 @@ import {
   SkipForward,
   SkipBack,
   Repeat,
-  Repeat1
+  Repeat1,
+  Check
 } from 'lucide-react'
 import { useVideoPlayerSettings } from '../../Context/VideoPlayerSettingsContext'
 import './VideoPlayer.css'
+
+const SPEED_OPTIONS = [3, 2.5, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5, 0.25, 0.01]
 
 const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
   const { settings } = useVideoPlayerSettings()
@@ -62,6 +65,7 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
   // Speed indicator state
   const [showSpeedIndicator, setShowSpeedIndicator] = useState(false)
   const [speedIndicatorValue, setSpeedIndicatorValue] = useState(1)
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false)
   
   // Tooltip state
   const [showSpacebarTooltip, setShowSpacebarTooltip] = useState(true)
@@ -774,6 +778,15 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
     displaySpeedIndicator(newRate)
   }
 
+  const handleSpeedSelect = (speed) => {
+    setPlaybackRate(speed)
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed
+    }
+    displaySpeedIndicator(speed)
+    setShowSpeedMenu(false)
+  }
+
   // Display speed indicator
   const displaySpeedIndicator = (speed) => {
     setSpeedIndicatorValue(speed)
@@ -1010,8 +1023,32 @@ const VideoPlayer = ({ video, videos, onNextVideo, onPreviousVideo }) => {
           </div>
 
           <div className="video-player__right-controls">
-            <div className="current-speed-display">
-              {playbackRate.toFixed(1)}x
+            <div className="speed-control-container">
+              {showSpeedMenu && (
+                <div className="speed-menu">
+                  {SPEED_OPTIONS.map((speed) => (
+                    <button
+                      key={speed}
+                      className={`speed-menu-item ${playbackRate === speed ? 'active' : ''}`}
+                      onClick={() => handleSpeedSelect(speed)}
+                    >
+                      {playbackRate === speed && <Check size={14} />}
+                      <span style={{ marginLeft: playbackRate === speed ? 0 : '22px' }}>
+                        {speed === 1 ? 'Normal' : `${speed}x`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button 
+                className="speed-display-btn"
+                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                title="Playback Speed"
+              >
+                <div className="current-speed-display">
+                  {playbackRate === 1 ? '1.0x' : `${playbackRate}x`}
+                </div>
+              </button>
             </div>
             
             <button className="control-btn">
