@@ -1,8 +1,220 @@
-.progress-page {
-  color: var(--text-primary, #cdd6f4);
+.progress-page-container {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #fff;
 }
 
-.progress-page h1 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
+.progress-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.progress-page-header h1 {
+  font-size: 28px;
+  margin: 0;
+  background: linear-gradient(135deg, #fff 0%, #aaa 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.refresh-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.no-downloads {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 0;
+  color: #555;
+  text-align: center;
+}
+
+.no-downloads p {
+  margin-top: 20px;
+  font-size: 18px;
+}
+
+.downloads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.download-progress-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.download-progress-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.download-progress-card.downloading {
+  border-color: rgba(62, 166, 255, 0.3);
+}
+
+.dl-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dl-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dl-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+}
+
+.dl-time {
+  font-size: 12px;
+  color: #666;
+}
+
+.cancel-dl-btn {
+  background: rgba(231, 76, 60, 0.1);
+  color: #ff6b6b;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-dl-btn:hover {
+  background: #e74c3c;
+  color: white;
+}
+
+.dl-filename {
+  font-weight: 600;
+  font-size: 15px;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 5px;
+}
+
+.dl-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dl-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.dl-progress-bar-bg {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dl-progress-bar-fill {
+  height: 100%;
+  background: #3ea6ff;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dl-progress-bar-fill.finished { background: #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
+.dl-progress-bar-fill.error { background: #e74c3c; }
+.dl-progress-bar-fill.cancelled { background: #555; }
+
+.dl-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dl-footer-item {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.dl-footer-item .label { color: #666; }
+.dl-footer-item .value { color: #aaa; }
+
+.dl-error-msg {
+  background: rgba(231, 76, 60, 0.1);
+  color: #ff6b6b;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.dl-success-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.success-text {
+  color: #2ecc71;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { API_BASE_URL } from '../../config'
+import { useDownload } from '../../Context/DownloadContext'
 import { 
   Download, 
   Search, 
@@ -13,7 +14,10 @@ import {
   Clock,
   Eye,
   User,
-  Calendar
+  Calendar,
+  Languages,
+  Plus,
+  ArrowRight
 } from 'lucide-react'
 import './simpledownload.css'
 
@@ -22,20 +26,22 @@ const SimpleDownload = () => {
   const [loading, setLoading] = useState(false)
   const [metadata, setMetadata] = useState(null)
   const [formats, setFormats] = useState(null)
-  const [activeTab, setActiveTab] = useState('video_audio') // video_audio, video_only, audio_only
+  const [activeTab, setActiveTab] = useState('video_audio') // video_audio, video_only, audio_only, merge
   const [selectedFormat, setSelectedFormat] = useState(null)
   const [directories, setDirectories] = useState(['Not Watched'])
   const [selectedDir, setSelectedDir] = useState('Not Watched')
+  const [newDirName, setNewDirName] = useState('')
+  const [showNewDirInput, setShowNewDirInput] = useState(false)
   const [error, setError] = useState(null)
   
-  // Download State
-  const [downloadId, setDownloadId] = useState(null)
-  const [downloadStatus, setDownloadStatus] = useState(null)
-  const progressIntervalRef = useRef(null)
+  // Merge states
+  const [selectedVideoOnly, setSelectedVideoOnly] = useState(null)
+  const [selectedAudioOnly, setSelectedAudioOnly] = useState(null)
+
+  const { startDownload, downloads } = useDownload()
 
   useEffect(() => {
     fetchDirectories()
-    return () => clearInterval(progressIntervalRef.current)
   }, [])
 
   const fetchDirectories = async () => {
@@ -57,8 +63,8 @@ const SimpleDownload = () => {
     setMetadata(null)
     setFormats(null)
     setSelectedFormat(null)
-    setDownloadId(null)
-    setDownloadStatus(null)
+    setSelectedVideoOnly(null)
+    setSelectedAudioOnly(null)
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/download/formats`, {
@@ -86,56 +92,33 @@ const SimpleDownload = () => {
   }
 
   const handleDownload = async () => {
-    if (!selectedFormat) return
-    
-    // Check if we need to start a simple download or merge
-    // For now, mirroring simple behavior: just download the selected format
-    // Use proper start endpoint
+    let formatId = ''
+    if (activeTab === 'merge') {
+      if (!selectedVideoOnly || !selectedAudioOnly) {
+        setError('Please select both video and audio for merging')
+        return
+      }
+      formatId = `${selectedVideoOnly.format_id}+${selectedAudioOnly.format_id}`
+    } else {
+      if (!selectedFormat) return
+      formatId = selectedFormat.format_id
+    }
+
+    const finalDir = showNewDirInput && newDirName.trim() ? newDirName.trim() : selectedDir
     
     setError(null)
+    const result = await startDownload(url, formatId, finalDir)
     
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/download/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          format_id: selectedFormat.format_id,
-          save_dir: selectedDir
-        })
-      })
-      
-      const data = await res.json()
-      
-      if (data.success) {
-        setDownloadId(data.download_id)
-        startProgressTracking(data.download_id)
-      } else {
-        setError(data.error || 'Failed to start download')
+    if (!result.success) {
+      setError(result.error)
+    } else {
+      // Refresh directories if we created a new one
+      if (showNewDirInput) {
+        fetchDirectories()
+        setShowNewDirInput(false)
+        setNewDirName('')
       }
-    } catch (err) {
-      setError('Network error: ' + err.message)
     }
-  }
-
-  const startProgressTracking = (id) => {
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-    
-    progressIntervalRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/download/status/${id}`)
-        const data = await res.json()
-        
-        if (data.success) {
-          setDownloadStatus(data)
-          if (data.status === 'finished' || data.status === 'error') {
-            clearInterval(progressIntervalRef.current)
-          }
-        }
-      } catch (err) {
-        console.error('Error tracking progress', err)
-      }
-    }, 1000)
   }
 
   const formatFileSize = (bytes) => {
@@ -211,6 +194,13 @@ const SimpleDownload = () => {
                 <Calendar size={14} />
                 {metadata.upload_date}
               </div>
+              <div className="stat-item">
+                <Languages size={14} />
+                {metadata.language || 'Original'}
+                {metadata.original_language && (
+                  <span className="original-badge">ORIGINAL</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -224,112 +214,172 @@ const SimpleDownload = () => {
               className={`tab-btn ${activeTab === 'video_audio' ? 'active' : ''}`}
               onClick={() => setActiveTab('video_audio')}
             >
-              <Video size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+              <Video size={16} />
               Video + Audio
             </button>
             <button 
               className={`tab-btn ${activeTab === 'video_only' ? 'active' : ''}`}
               onClick={() => setActiveTab('video_only')}
             >
-              <Film size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+              <Film size={16} />
               Video Only
             </button>
             <button 
               className={`tab-btn ${activeTab === 'audio_only' ? 'active' : ''}`}
               onClick={() => setActiveTab('audio_only')}
             >
-              <Music size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+              <Music size={16} />
               Audio Only
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === 'merge' ? 'active' : ''}`}
+              onClick={() => setActiveTab('merge')}
+            >
+              <Plus size={16} />
+              Advanced Merge
             </button>
           </div>
 
-          <div className="formats-list">
-            {formats[activeTab]?.map((fmt) => (
-              <div 
-                key={fmt.format_id}
-                className={`format-card ${selectedFormat?.format_id === fmt.format_id ? 'selected' : ''}`}
-                onClick={() => setSelectedFormat(fmt)}
-              >
-                <div className="format-res">
-                  {fmt.resolution !== 'N/A' ? fmt.resolution : fmt.audio_ext || fmt.ext}
-                  {selectedFormat?.format_id === fmt.format_id && <Check size={18} className="format-check" />}
+          <div className="formats-list-wrapper">
+            {activeTab === 'merge' ? (
+                <div className="merge-selection-container">
+                    <div className="merge-column">
+                        <h3>Select Video</h3>
+                        <div className="formats-list-mini">
+                            {formats.video_only.map(fmt => (
+                                <div 
+                                    key={fmt.format_id}
+                                    className={`format-card-mini ${selectedVideoOnly?.format_id === fmt.format_id ? 'selected' : ''}`}
+                                    onClick={() => setSelectedVideoOnly(fmt)}
+                                >
+                                    <span className="mini-res">{fmt.resolution}</span>
+                                    <span className="mini-meta">{fmt.ext} • {formatFileSize(fmt.filesize)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="merge-icon-divider"><Plus size={24} /></div>
+                    <div className="merge-column">
+                        <h3>Select Audio</h3>
+                        <div className="formats-list-mini">
+                            {formats.audio_only.map(fmt => (
+                                <div 
+                                    key={fmt.format_id}
+                                    className={`format-card-mini ${selectedAudioOnly?.format_id === fmt.format_id ? 'selected' : ''}`}
+                                    onClick={() => setSelectedAudioOnly(fmt)}
+                                >
+                                    <span className="mini-res">{fmt.language !== 'und' ? fmt.language : 'Audio'}</span>
+                                    <span className="mini-meta">{fmt.ext} • {formatFileSize(fmt.filesize)}</span>
+                                    {fmt.is_original && <span className="mini-badge">ORIGINAL</span>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-                <div className="format-meta">
-                  <span className="format-ext">{fmt.ext}</span>
-                  <span className="format-size">{formatFileSize(fmt.filesize)}</span>
+            ) : (
+                <div className="formats-list">
+                    {formats[activeTab]?.map((fmt) => (
+                    <div 
+                        key={fmt.format_id}
+                        className={`format-card ${selectedFormat?.format_id === fmt.format_id ? 'selected' : ''}`}
+                        onClick={() => setSelectedFormat(fmt)}
+                    >
+                        <div className="format-res">
+                        {fmt.resolution !== 'N/A' ? fmt.resolution : fmt.audio_ext || fmt.ext}
+                        {selectedFormat?.format_id === fmt.format_id && <Check size={18} className="format-check" />}
+                        </div>
+                        <div className="format-meta">
+                        <span className="format-ext">{fmt.ext}</span>
+                        <span className="format-size">{formatFileSize(fmt.filesize)}</span>
+                        </div>
+                        <div className="format-badges">
+                        {fmt.vcodec && <span className="format-badge">{fmt.vcodec}</span>}
+                        {fmt.acodec && <span className="format-badge">{fmt.acodec}</span>}
+                        {fmt.fps && <span className="format-badge">{fmt.fps}fps</span>}
+                        {fmt.language && fmt.language !== 'und' && <span className="format-badge lang">{fmt.language}</span>}
+                        {fmt.is_original && <span className="format-badge original">ORIGINAL</span>}
+                        </div>
+                    </div>
+                    ))}
+                    {formats[activeTab]?.length === 0 && (
+                    <div className="no-formats">No formats available for this category</div>
+                    )}
                 </div>
-                <div className="format-badges">
-                  {fmt.vcodec && <span className="format-badge">{fmt.vcodec}</span>}
-                  {fmt.acodec && <span className="format-badge">{fmt.acodec}</span>}
-                  {fmt.fps && <span className="format-badge">{fmt.fps}fps</span>}
-                </div>
-              </div>
-            ))}
-            {formats[activeTab]?.length === 0 && (
-              <div className="no-formats">No formats available for this category</div>
             )}
           </div>
         </div>
       )}
 
       {/* Action Bar */}
-      {selectedFormat && (
+      {(selectedFormat || (selectedVideoOnly && selectedAudioOnly)) && (
         <div className="action-bar">
-          <div className="dir-selector">
-            <Folder size={20} color="#aaa" />
-            <select 
-              value={selectedDir} 
-              onChange={(e) => setSelectedDir(e.target.value)}
-              className="dir-select"
-            >
-              {directories.map(dir => (
-                <option key={dir} value={dir}>{dir}</option>
-              ))}
-            </select>
+          <div className="dir-selector-wrapper">
+            <div className="dir-selector">
+                <Folder size={20} color="#aaa" />
+                <select 
+                value={selectedDir} 
+                onChange={(e) => setSelectedDir(e.target.value)}
+                className="dir-select"
+                disabled={showNewDirInput}
+                >
+                {directories.map(dir => (
+                    <option key={dir} value={dir}>{dir}</option>
+                ))}
+                </select>
+                <button 
+                  className={`new-dir-toggle ${showNewDirInput ? 'active' : ''}`}
+                  onClick={() => setShowNewDirInput(!showNewDirInput)}
+                  title="Create New Folder"
+                >
+                  <Plus size={18} />
+                </button>
+            </div>
+            
+            {showNewDirInput && (
+              <div className="new-dir-input-container">
+                <input 
+                  type="text" 
+                  className="new-dir-input" 
+                  placeholder="New folder name..."
+                  value={newDirName}
+                  onChange={(e) => setNewDirName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
           
           <button 
             className="download-btn"
             onClick={handleDownload}
-            disabled={!!downloadId && downloadStatus?.status === 'downloading'}
           >
             <Download size={20} />
-            {downloadId ? 'Downloading...' : 'Download'}
+            Download
           </button>
         </div>
       )}
 
-      {/* Progress Section */}
-      {downloadStatus && (
-        <div className="progress-container">
-          <div className="progress-header">
-            <span className="status-text">
-              {downloadStatus.status === 'downloading' && 'Downloading...'}
-              {downloadStatus.status === 'finished' && 'Download Complete!'}
-              {downloadStatus.status === 'error' && 'Error Occurred'}
-            </span>
-            <span className="percentage">
-              {downloadStatus.progress}%
-            </span>
-          </div>
-          
-          <div className="progress-bar-bg">
-            <div 
-              className={`progress-bar-fill ${downloadStatus.status}`}
-              style={{ width: `${downloadStatus.progress || 0}%` }}
-            ></div>
-          </div>
-          
-          {downloadStatus.status === 'downloading' && (
-            <div className="progress-stats">
-              <span>Speed: {downloadStatus.speed}</span>
-              <span>ETA: {downloadStatus.eta}</span>
+      {/* Active Downloads List (Mini) */}
+      {downloads.length > 0 && (
+        <div className="mini-progress-list">
+          <h3>Recent Downloads</h3>
+          {downloads.slice(0, 3).map(dl => (
+            <div key={dl.id} className="mini-progress-item">
+              <div className="mini-progress-info">
+                <span className="mini-filename">{dl.filename || 'Starting...'}</span>
+                <span className="mini-percent">{dl.progress}%</span>
+              </div>
+              <div className="mini-progress-bar">
+                <div 
+                  className={`mini-progress-fill ${dl.status}`} 
+                  style={{ width: `${dl.progress}%` }}
+                ></div>
+              </div>
             </div>
-          )}
-          
-          {downloadStatus.error && (
-            <div className="error-text">
-              {downloadStatus.error}
+          ))}
+          {downloads.length > 3 && (
+            <div className="view-all-link">
+               <a href="/download/progress">View all processes <ArrowRight size={14} /></a>
             </div>
           )}
         </div>

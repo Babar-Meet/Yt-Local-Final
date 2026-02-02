@@ -52,3 +52,23 @@ exports.getDownloadStatus = (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+exports.getAllDownloads = (req, res) => {
+  try {
+    const downloads = downloadService.getAllDownloads();
+    res.json({ success: true, downloads });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.cancelDownload = (req, res) => {
+  try {
+    const { id } = req.params;
+    const success = downloadService.cancelDownload(id);
+    res.json({ success });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+

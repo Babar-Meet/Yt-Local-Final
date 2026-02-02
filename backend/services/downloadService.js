@@ -6,8 +6,9 @@ const { v4: uuidv4 } = require('uuid');
 const publicDir = path.join(__dirname, '../public');
 const thumbnailsDir = path.join(publicDir, 'thumbnails');
 
-// Store active downloads
+// Store active downloads and their processes
 const downloads = new Map();
+const processes = new Map();
 
 class DownloadService {
   constructor() {
@@ -21,7 +22,7 @@ class DownloadService {
         '--dump-json',
         '--no-warnings',
         '--no-playlist',
-        '--extractor-args', 'youtube:player_client=android,web', // Matches Python config
+        '--extractor-args', 'youtube:player_client=android,web',
         url
       ];
 
@@ -77,7 +78,10 @@ class DownloadService {
         dynamic_range: fmt.dynamic_range,
         video_ext: fmt.video_ext,
         audio_ext: fmt.audio_ext,
-        tbr: fmt.tbr
+        tbr: fmt.tbr,
+        language: fmt.language || 'und',
+        language_preference: fmt.language_preference,
+        is_original: fmt.language_preference === 10 || (info.original_url && !fmt.language) // heuristics
       };
 
       // Determine type
@@ -94,9 +98,7 @@ class DownloadService {
     });
 
     // Sort formats
-    // Video only: by resolution then bitrate
     formatsByType.video_only.sort((a, b) => {
-        // Parse resolution (e.g. "1920x1080")
         const getRes = (res) => {
             if (!res || res === 'N/A') return 0;
             const parts = res.split('x');
@@ -116,7 +118,9 @@ class DownloadService {
         duration: info.duration,
         uploader: info.uploader,
         view_count: info.view_count,
-        upload_date: info.upload_date
+        upload_date: info.upload_date,
+        language: info.language,
+        original_language: info.language // YouTube often provides this at top level
       },
       formats: formatsByType
     };
@@ -135,7 +139,9 @@ class DownloadService {
       eta: '0',
       filename: null,
       error: null,
-      saveDir
+      saveDir,
+      url,
+      timestamp: new Date().toISOString()
     });
 
     const outputDir = path.join(publicDir, saveDir);
@@ -150,9 +156,13 @@ class DownloadService {
       '-o', outputTemplate,
       '--no-playlist',
       '--extractor-args', 'youtube:player_client=android,web',
-      '--newline', // Important for parsing progress
+      '--newline',
+      '--write-thumbnail',
+      '--convert-thumbnails', 'jpg',
+      '--output', `thumbnail:${path.join(thumbnailsDir, '%(title)s')}`,
       url
     ];
+
     
     // Add ffmpeg post-processing if merging
     if (formatId.includes('+')) {
@@ -160,14 +170,13 @@ class DownloadService {
     }
 
     const process = spawn('yt-dlp', args);
+    processes.set(downloadId, process);
 
-    // Track state
     const status = this.downloads.get(downloadId);
 
     process.stdout.on('data', (data) => {
       const line = data.toString();
       
-      // Parse progress: [download]  45.0% of 10.00MiB at 2.50MiB/s ETA 00:10
       if (line.includes('[download]')) {
         const percentMatch = line.match(/(\d+\.\d+)%/);
         const speedMatch = line.match(/at\s+([^\s]+)/);
@@ -180,7 +189,6 @@ class DownloadService {
         status.status = 'downloading';
       }
       
-      // Capture filename
       if (line.includes('[Merger] Merging formats into')) {
           const match = line.match(/"([^"]+)"/);
           if (match) status.filename = path.basename(match[1]);
@@ -192,22 +200,22 @@ class DownloadService {
           status.filename = path.basename(line.split('download] ')[1].split(' has')[0].trim());
       }
       
-      this.downloads.set(downloadId, status); // Update map
+      this.downloads.set(downloadId, status);
     });
 
     process.stderr.on('data', (data) => {
        const error = data.toString();
-       if (!error.includes('WARNING')) { // Ignore warnings
+       if (!error.includes('WARNING')) {
          console.error(`Download Error (${downloadId}):`, error);
-         // Don't fail immediately on stderr output as yt-dlp uses it for some info
        }
     });
 
     process.on('close', (code) => {
+      processes.delete(downloadId);
       if (code === 0) {
         status.status = 'finished';
         status.progress = 100;
-      } else {
+      } else if (status.status !== 'cancelled') {
         status.status = 'error';
         status.error = `Process exited with code ${code}`;
       }
@@ -217,8 +225,27 @@ class DownloadService {
     return downloadId;
   }
 
+  cancelDownload(id) {
+    const process = processes.get(id);
+    if (process) {
+      process.kill();
+      const status = this.downloads.get(id);
+      if (status) {
+        status.status = 'cancelled';
+        this.downloads.set(id, status);
+      }
+      processes.delete(id);
+      return true;
+    }
+    return false;
+  }
+
   getDownloadStatus(id) {
     return this.downloads.get(id);
+  }
+
+  getAllDownloads() {
+    return Array.from(this.downloads.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }
 
   getDirectories() {
@@ -241,3 +268,4 @@ class DownloadService {
 }
 
 module.exports = new DownloadService();
+

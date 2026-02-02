@@ -19,7 +19,7 @@ const DownloadNav = () => {
     { path: '/download/batch', label: 'Batch Download', icon: <Users size={20} /> },
     { path: '/download/playlist', label: 'Playlist', icon: <List size={20} /> },
     { path: '/download/queue', label: 'Queue', icon: <Clock size={20} /> },
-    { path: '/download/progress', label: 'Progress', icon: <BarChart3 size={20} /> },
+    { path: '/download/progress', label: 'Processes', icon: <BarChart3 size={20} /> },
     { path: '/download/settings', label: 'Settings', icon: <Settings size={20} /> }
   ]
 

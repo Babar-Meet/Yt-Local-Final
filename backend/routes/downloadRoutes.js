@@ -14,4 +14,11 @@ router.post('/start', downloadController.startDownload);
 // Get download status
 router.get('/status/:id', downloadController.getDownloadStatus);
 
+// Get all downloads (for process tab)
+router.get('/all', downloadController.getAllDownloads);
+
+// Cancel a download
+router.post('/cancel/:id', downloadController.cancelDownload);
+
 module.exports = router;
+

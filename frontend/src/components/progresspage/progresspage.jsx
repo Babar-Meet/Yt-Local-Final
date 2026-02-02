@@ -1,13 +1,120 @@
-import React from 'react'
-import './progresspage.css'
+import React from 'react';
+import { useDownload } from '../../Context/DownloadContext';
+import { 
+  X, 
+  CheckCircle2, 
+  AlertCircle, 
+  Clock, 
+  Download, 
+  ExternalLink,
+  Trash2,
+  RefreshCw
+} from 'lucide-react';
+import './progresspage.css';
 
 const ProgressPage = () => {
-  return (
-    <div className="progress-page">
-      <h1>Download Progress</h1>
-      {/* Body will be added later */}
-    </div>
-  )
-}
+  const { downloads, cancelDownload, fetchDownloads } = useDownload();
 
-export default ProgressPage
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'finished': return <CheckCircle2 size={18} color="#2ecc71" />;
+      case 'error': return <AlertCircle size={18} color="#e74c3c" />;
+      case 'downloading': return <RefreshCw size={18} color="#3ea6ff" className="spin" />;
+      case 'cancelled': return <X size={18} color="#aaa" />;
+      default: return <Clock size={18} color="#aaa" />;
+    }
+  };
+
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return date.toLocaleDateString();
+  };
+
+  return (
+    <div className="progress-page-container">
+      <div className="progress-page-header">
+        <h1>Download Queue & History</h1>
+        <button className="refresh-btn" onClick={fetchDownloads}>
+          <RefreshCw size={16} /> Refresh
+        </button>
+      </div>
+
+      {downloads.length === 0 ? (
+        <div className="no-downloads">
+          <Download size={48} />
+          <p>No downloads yet. Go to Simple Download to start one!</p>
+        </div>
+      ) : (
+        <div className="downloads-grid">
+          {downloads.map((dl) => (
+            <div key={dl.id} className={`download-progress-card ${dl.status}`}>
+              <div className="dl-card-header">
+                <div className="dl-header-main">
+                  <div className="dl-status-badge">
+                    {getStatusIcon(dl.status)}
+                    <span className="status-label">{dl.status}</span>
+                  </div>
+                  <span className="dl-time">{getTimeAgo(dl.timestamp)}</span>
+                </div>
+                {(dl.status === 'downloading' || dl.status === 'starting') && (
+                  <button 
+                    className="cancel-dl-btn" 
+                    onClick={() => cancelDownload(dl.id)}
+                    title="Cancel Download"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              <div className="dl-filename" title={dl.filename || dl.url}>
+                {dl.filename || dl.url}
+              </div>
+
+              <div className="dl-progress-section">
+                <div className="dl-progress-meta">
+                  <span>{dl.progress}% Complete</span>
+                  {dl.status === 'downloading' && (
+                    <span>{dl.speed} • {dl.eta} left</span>
+                  )}
+                </div>
+                <div className="dl-progress-bar-bg">
+                  <div 
+                    className={`dl-progress-bar-fill ${dl.status}`}
+                    style={{ width: `${dl.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              <div className="dl-footer">
+                <div className="dl-footer-item">
+                  <span className="label">Folder:</span>
+                  <span className="value">{dl.saveDir}</span>
+                </div>
+                {dl.status === 'error' && dl.error && (
+                  <div className="dl-error-msg">
+                    {dl.error}
+                  </div>
+                )}
+                {dl.status === 'finished' && (
+                  <div className="dl-success-actions">
+                    <span className="success-text">Ready to watch</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProgressPage;
