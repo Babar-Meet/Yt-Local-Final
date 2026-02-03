@@ -15,12 +15,17 @@ const Home = ({ videos, categories, loading, fetchVideos, thumbnailsNeeded }) =>
   const getSidebarCategories = () => {
     const categoriesList = []
     
-    // Add "All Videos" category
+    // Add "All Videos" category (filtering out ambience and trash)
+    const validVideos = videos.filter(v => {
+      const lowerFolder = (v.folder || '').toLowerCase();
+      return !lowerFolder.startsWith('ambience') && !lowerFolder.startsWith('trash');
+    });
+
     categoriesList.push({
       id: 'all',
       name: 'All Videos',
-      displayName: `All Videos (${videos.length})`,
-      count: videos.length
+      displayName: `All Videos (${validVideos.length})`,
+      count: validVideos.length
     })
 
     // Add "My Videos" (root category)
@@ -47,7 +52,7 @@ const Home = ({ videos, categories, loading, fetchVideos, thumbnailsNeeded }) =>
       return Array.from(folderSet)
         .filter(folder => {
           const lowerFolder = folder.toLowerCase()
-          return lowerFolder !== 'thumbnails' && !lowerFolder.startsWith('playlist') && lowerFolder !== 'trash'
+          return lowerFolder !== 'thumbnails' && !lowerFolder.startsWith('playlist') && lowerFolder !== 'trash' && lowerFolder !== 'ambience'
         })
         .map(folder => ({
           id: folder,
@@ -119,11 +124,17 @@ const Home = ({ videos, categories, loading, fetchVideos, thumbnailsNeeded }) =>
 
   // Filter videos based on selected category
   const filteredVideos = () => {
-    if (selectedCategory === 'all') return videos
-    if (selectedCategory === 'my-videos') return videos.filter(v => !v.folder || v.folder === '')
+    // Basic filter to always exclude ambience and trash from the main lists
+    const baseVideos = videos.filter(v => {
+      const lowerFolder = (v.folder || '').toLowerCase();
+      return !lowerFolder.startsWith('ambience') && !lowerFolder.startsWith('trash');
+    });
+
+    if (selectedCategory === 'all') return baseVideos;
+    if (selectedCategory === 'my-videos') return baseVideos.filter(v => !v.folder || v.folder === '');
     
     // For folder/playlist categories
-    return videos.filter(video => video.folder === selectedCategory)
+    return baseVideos.filter(video => video.folder === selectedCategory);
   }
 
   const currentVideos = filteredVideos()

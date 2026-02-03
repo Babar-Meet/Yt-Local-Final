@@ -8,6 +8,7 @@ const thumbnailService = require('../services/thumbnailService'); // Add this
 const publicDir = path.join(__dirname, '../public');
 const thumbnailsDir = path.join(publicDir, 'thumbnails');
 const trashDir = path.join(publicDir, 'trash');
+const ambienceDir = path.join(publicDir, 'ambience');
 
 // Supported video extensions
 const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v'];
@@ -21,6 +22,11 @@ function findVideoFiles(dir, basePath = '', results = []) {
     const relativePath = path.join(basePath, file.name);
     
     if (file.isDirectory()) {
+      const lowerName = file.name.toLowerCase();
+      // ABSOLUTE SKIP for protected internal directories
+      if (lowerName === 'ambience' || lowerName === 'trash' || lowerName === 'thumbnails' || lowerName === '.gemini' || lowerName === '.git') {
+        continue;
+      }
       // Recursively search in subdirectories
       findVideoFiles(fullPath, relativePath, results);
     } else {
@@ -53,9 +59,9 @@ exports.getAllVideos = async (req, res) => {
       });
     }
 
-    // Find all video files in the public directory (excluding trash)
+    // Find all video files in the public directory (excluding trash and ambience)
     const videoFiles = findVideoFiles(publicDir).filter(video => {
-      return !video.absolutePath.includes(trashDir);
+      return !video.absolutePath.includes(trashDir) && !video.absolutePath.includes(ambienceDir);
     });
     
     // Get video info for each file (async)
@@ -143,10 +149,12 @@ function createCategories(videos) {
   const categories = new Map();
   
   videos.forEach(video => {
-    const pathParts = video.relativePath.split(path.sep);
-    const directoryPath = pathParts.slice(0, -1).join(path.sep); // Remove filename
+    const pathParts = video.relativePath.split('/'); // Use forward slashes as set in videoService
+    const directoryPath = pathParts.slice(0, -1).join('/'); 
     
-    if (directoryPath && !directoryPath.toLowerCase().startsWith('ambience')) {
+    // Safety check again: if the folder path starts with ambience or trash, ignore it
+    const lowerDir = directoryPath.toLowerCase();
+    if (directoryPath && !lowerDir.startsWith('ambience') && !lowerDir.startsWith('trash')) {
       // Split by directory to create subcategories
       let currentPath = '';
       pathParts.slice(0, -1).forEach(part => {
@@ -273,9 +281,9 @@ exports.getVideosByCategory = async (req, res) => {
   try {
     const categoryPath = decodeURIComponent(req.params.categoryPath || '');
     
-    // Find all video files in the public directory (excluding trash)
+    // Find all video files in the public directory (excluding trash and ambience)
     const videoFiles = findVideoFiles(publicDir).filter(video => {
-      return !video.absolutePath.includes(trashDir);
+      return !video.absolutePath.includes(trashDir) && !video.absolutePath.includes(ambienceDir);
     });
     
     // Filter videos by category/folder

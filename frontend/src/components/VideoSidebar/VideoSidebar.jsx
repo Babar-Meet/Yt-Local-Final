@@ -118,6 +118,7 @@ const VideoSidebar = ({ videos, currentVideoId }) => {
     })
     
     return Object.entries(folderCounts)
+      .filter(([path]) => !path.toLowerCase().startsWith('ambience') && !path.toLowerCase().startsWith('trash'))
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10) // Top 10 folders
       .map(([folderPath, count]) => {
@@ -139,11 +140,16 @@ const VideoSidebar = ({ videos, currentVideoId }) => {
   const popularFolders = getPopularFolders()
 
   // Create category options - KEEPING THE ORIGINAL ORDER
+  const validVideos = videos.filter(v => {
+    const lowerFolder = (v.folder || '').toLowerCase();
+    return !lowerFolder.startsWith('ambience') && !lowerFolder.startsWith('trash');
+  });
+
   const categories = [
     {
       id: 'all',
       name: 'All Videos',
-      displayName: `All Videos (${videos.length - 1})`
+      displayName: `All Videos (${validVideos.length - 1})`
     },
     {
       id: 'same-type',
@@ -156,7 +162,7 @@ const VideoSidebar = ({ videos, currentVideoId }) => {
   ]
 
   // Filter videos based on selected category
-  const filteredVideos = videos.filter(video => {
+  const filteredVideos = validVideos.filter(video => {
     if (video.id === currentVideoId) return false
     
     switch (selectedCategory) {
