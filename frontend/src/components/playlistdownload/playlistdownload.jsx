@@ -120,6 +120,28 @@ const PlaylistDownload = () => {
         }
         
         setProcessingStatus('done')
+        
+        // Auto-select best common quality
+        const videoResSets = data.videos.map(v => {
+          const formats = formatsMap[v.id]?.formats?.video_audio || []
+          return new Set(formats.map(f => f.resolution).filter(r => r && r !== 'N/A'))
+        })
+        if (videoResSets.length > 0) {
+          const common = Array.from(videoResSets[0]).filter(res => 
+            videoResSets.every(set => set.has(res))
+          )
+          if (common.length > 0) {
+            // Sort to find best
+            const sortedCommon = common.sort((a, b) => {
+              const getVal = (s) => {
+                const parts = s.split('x')
+                return parseInt(parts[0]) * (parts.length > 1 ? parseInt(parts[1]) : 1)
+              }
+              return getVal(b) - getVal(a)
+            })
+            setSelectedCommonQuality(sortedCommon[0])
+          }
+        }
       } else {
         setError(data.error || 'Failed to fetch playlist info')
         setProcessingStatus('idle')
@@ -158,6 +180,12 @@ const PlaylistDownload = () => {
   }, [processingStatus, playlistVideos, videoFormatsMap])
 
   const handleDownloadAll = async () => {
+    if (!selectedCommonQuality && Object.keys(customSelections).length === 0) {
+      if (!confirm('No quality selected for some videos. Use best available quality?')) {
+        return;
+      }
+    }
+    
     const finalDir = showNewDirInput && newDirName.trim() ? newDirName.trim() : selectedDir
     const batchId = `playlist_${Date.now()}`
     setActiveBatchId(batchId)
@@ -353,6 +381,20 @@ const PlaylistDownload = () => {
               const isProcessed = !!formatsData
               const hasCustom = !!customSelections[video.id]
               
+              let effectiveQuality = 'Best Available'
+              if (isProcessed) {
+                if (hasCustom) {
+                  const customFmtId = customSelections[video.id]
+                  const fmt = formatsData.formats?.video_audio?.find(f => f.format_id === customFmtId)
+                  effectiveQuality = fmt?.resolution || 'Custom'
+                } else if (selectedCommonQuality) {
+                  effectiveQuality = selectedCommonQuality
+                } else {
+                  const bestFmt = formatsData.formats?.video_audio?.[0]
+                  effectiveQuality = bestFmt?.resolution || 'Best'
+                }
+              }
+              
               return (
                 <div key={video.id} className="playlist-video-item">
                   <img src={video.thumbnail} alt={video.title} className="video-mini-thumb" />
@@ -370,13 +412,18 @@ const PlaylistDownload = () => {
                         Wait...
                       </div>
                     ) : (
-                      <button 
-                        className={`custom-download-btn ${hasCustom ? 'has-selection' : ''}`}
-                        onClick={() => setModalVideo(video)}
-                      >
-                        <Settings size={14} />
-                        {hasCustom ? 'Custom Set' : 'Custom'}
-                      </button>
+                      <div className="item-quality-wrapper">
+                        <div className="current-quality-tag">
+                          {effectiveQuality}
+                        </div>
+                        <button 
+                          className={`custom-download-btn ${hasCustom ? 'has-selection' : ''}`}
+                          onClick={() => setModalVideo(video)}
+                        >
+                          <Settings size={14} />
+                          {hasCustom ? 'Changing' : 'Custom'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -429,7 +476,6 @@ const PlaylistDownload = () => {
           <button 
             className="download-all-btn"
             onClick={handleDownloadAll}
-            disabled={!selectedCommonQuality && Object.keys(customSelections).length === 0 && !confirm('No common quality selected. Download best available for all?')}
           >
             <Download size={20} />
             Download all {playlistVideos.length} Videos
