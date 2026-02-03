@@ -11,12 +11,37 @@ const downloads = new Map();
 const processes = new Map();
 
 const queue = [];
-let isProcessingQueue = false;
+let activeDownloadsCount = 0;
+const settingsPath = path.join(publicDir, 'download_settings.json');
+
+const defaultSettings = {
+  maxConcurrentPlaylistDownloads: 3
+};
 
 class DownloadService {
   constructor() {
     this.downloads = downloads;
     this.queue = queue;
+    this.settings = this.loadSettings();
+    this.activeBatchProcesses = 0;
+  }
+
+  loadSettings() {
+    try {
+      if (fs.existsSync(settingsPath)) {
+        return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      }
+    } catch (e) {
+      console.error('Failed to load settings', e);
+    }
+    return { ...defaultSettings };
+  }
+
+  saveSettings(newSettings) {
+    this.settings = { ...this.settings, ...newSettings };
+    fs.writeFileSync(settingsPath, JSON.stringify(this.settings, null, 2));
+    this.processQueue(); // Re-trigger if limit increased
+    return this.settings;
   }
 
   // Get formats for a video URL
@@ -208,6 +233,11 @@ class DownloadService {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    const targetThumbDir = path.join(thumbnailsDir, saveDir);
+    if (!fs.existsSync(targetThumbDir)) {
+      fs.mkdirSync(targetThumbDir, { recursive: true });
+    }
+
     const prefix = metadata.index !== undefined ? `${metadata.index.toString().padStart(2, '0')} ` : '';
     const outputTemplate = path.join(outputDir, `${prefix}%(title)s.%(ext)s`);
 
@@ -219,7 +249,7 @@ class DownloadService {
       '--newline',
       '--write-thumbnail',
       '--convert-thumbnails', 'jpg',
-      '--output', `thumbnail:${path.join(thumbnailsDir, `${prefix}%(title)s`)}`,
+      '--output', `thumbnail:${path.join(targetThumbDir, `${prefix}%(title)s`)}`,
       '--retries', '10',
       '--fragment-retries', '10',
       '--socket-timeout', '30',
@@ -233,32 +263,42 @@ class DownloadService {
        args.push('--merge-output-format', 'mp4');
     }
 
-    // Add to queue instead of starting immediately
-    this.queue.push({ downloadId, args });
-    this.downloads.get(downloadId).status = 'queued';
+    // If it's a single download (no batchId), start immediately bypassing queue logic
+    // OR if we want order even for singles, we add them with a special priority.
+    // User said: "playlist downlad count in setting not effact the simple vidoe downlad".
     
-    // Trigger queue processing
-    this.processQueue();
+    if (!metadata.batchId) {
+      this.downloads.get(downloadId).status = 'starting';
+      this.startProcess(downloadId, args);
+    } else {
+      this.queue.push({ downloadId, args, isBatch: true });
+      this.downloads.get(downloadId).status = 'queued';
+      this.processQueue();
+    }
 
     return downloadId;
   }
 
-  async processQueue() {
-    if (isProcessingQueue || this.queue.length === 0) return;
-    
-    isProcessingQueue = true;
-    const { downloadId, args } = this.queue.shift();
-    const status = this.downloads.get(downloadId);
-    
-    if (status.status === 'cancelled') {
-      isProcessingQueue = false;
-      this.processQueue();
-      return;
+  processQueue() {
+    // Basic logic: if active batch processes < limit, start next batch item
+    while (this.activeBatchProcesses < this.settings.maxConcurrentPlaylistDownloads && this.queue.length > 0) {
+      const idx = this.queue.findIndex(item => item.isBatch);
+      if (idx === -1) break;
+
+      const { downloadId, args } = this.queue.splice(idx, 1)[0];
+      const status = this.downloads.get(downloadId);
+      
+      if (status.status === 'cancelled') continue;
+
+      this.activeBatchProcesses++;
+      status.status = 'starting';
+      this.downloads.set(downloadId, status);
+      this.startProcess(downloadId, args, true);
     }
+  }
 
-    status.status = 'starting';
-    this.downloads.set(downloadId, status);
-
+  startProcess(downloadId, args, isBatch = false) {
+    const status = this.downloads.get(downloadId);
     const process = spawn('yt-dlp', args);
     processes.set(downloadId, process);
 
@@ -309,9 +349,11 @@ class DownloadService {
       }
       this.downloads.set(downloadId, status);
       
-      // Process next in queue after a small delay
-      isProcessingQueue = false;
-      setTimeout(() => this.processQueue(), 1000);
+      if (isBatch) {
+        this.activeBatchProcesses--;
+        // Small delay to prevent CPU spikes or rate limiting
+        setTimeout(() => this.processQueue(), 500);
+      }
     });
   }
 

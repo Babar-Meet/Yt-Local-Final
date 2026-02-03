@@ -85,4 +85,15 @@ exports.cancelDownload = (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+exports.getSettings = (req, res) => {
+  res.json({ success: true, settings: downloadService.settings });
+};
 
+exports.updateSettings = (req, res) => {
+  try {
+    const settings = downloadService.saveSettings(req.body);
+    res.json({ success: true, settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};

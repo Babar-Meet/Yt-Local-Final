@@ -8,6 +8,7 @@ export const useDownload = () => useContext(DownloadContext);
 export const DownloadProvider = ({ children }) => {
   const [downloads, setDownloads] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState({ maxConcurrentPlaylistDownloads: 3 });
   const pollIntervalRef = useRef(null);
 
   const fetchDownloads = async () => {
@@ -18,7 +19,8 @@ export const DownloadProvider = ({ children }) => {
         setDownloads(data.downloads);
         
         // Check if we need to continue polling
-        const hasActive = data.downloads.some(d => d.status === 'downloading' || d.status === 'starting');
+        // Now also checking for 'queued'
+        const hasActive = data.downloads.some(d => ['downloading', 'starting', 'queued'].includes(d.status));
         if (!hasActive && pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
@@ -29,6 +31,34 @@ export const DownloadProvider = ({ children }) => {
     } catch (err) {
       console.error('Failed to fetch downloads', err);
     }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/download/settings`);
+      const data = await res.json();
+      if (data.success) setSettings(data.settings);
+    } catch (err) {
+      console.error('Failed to fetch settings', err);
+    }
+  };
+
+  const updateSettings = async (newSettings) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/download/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettings(data.settings);
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to update settings', err);
+    }
+    return false;
   };
 
   const startPolling = () => {
@@ -73,13 +103,22 @@ export const DownloadProvider = ({ children }) => {
 
   useEffect(() => {
     fetchDownloads();
+    fetchSettings();
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
 
   return (
-    <DownloadContext.Provider value={{ downloads, startDownload, cancelDownload, fetchDownloads }}>
+    <DownloadContext.Provider value={{ 
+      downloads, 
+      startDownload, 
+      cancelDownload, 
+      fetchDownloads,
+      settings,
+      updateSettings,
+      fetchSettings
+    }}>
       {children}
     </DownloadContext.Provider>
   );

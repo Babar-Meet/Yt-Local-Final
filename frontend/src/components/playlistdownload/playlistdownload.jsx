@@ -44,7 +44,17 @@ const PlaylistDownload = () => {
 
   useEffect(() => {
     fetchDirectories()
-  }, [])
+    
+    // Auto-detect if there's an active batch in progress
+    if (!activeBatchId) {
+      const activeBatch = downloads.find(d => 
+        ['downloading', 'starting', 'queued'].includes(d.status) && d.batchId
+      );
+      if (activeBatch) {
+        setActiveBatchId(activeBatch.batchId);
+      }
+    }
+  }, [downloads, activeBatchId])
 
   const fetchDirectories = async () => {
     try {
@@ -248,9 +258,13 @@ const PlaylistDownload = () => {
                  <div className="stat-value">{downloads.filter(d => d.batchId === activeBatchId).length}</div>
                  <div className="stat-label">Total</div>
               </div>
+              <div className="batch-stat-card queued">
+                 <div className="stat-value">{downloads.filter(d => d.batchId === activeBatchId && d.status === 'queued').length}</div>
+                 <div className="stat-label">Queued</div>
+              </div>
               <div className="batch-stat-card downloading">
-                 <div className="stat-value">{downloads.filter(d => d.batchId === activeBatchId && d.status === 'downloading').length}</div>
-                 <div className="stat-label">Downloading</div>
+                 <div className="stat-value">{downloads.filter(d => d.batchId === activeBatchId && (d.status === 'downloading' || d.status === 'starting')).length}</div>
+                 <div className="stat-label">Active</div>
               </div>
               <div className="batch-stat-card finished">
                  <div className="stat-value">{downloads.filter(d => d.batchId === activeBatchId && d.status === 'finished').length}</div>
@@ -272,7 +286,9 @@ const PlaylistDownload = () => {
                           <div className="mini-bar-bg">
                              <div className={`mini-bar-fill ${dl.status}`} style={{ width: `${dl.progress}%` }}></div>
                           </div>
-                          <span className="mini-percent">{dl.progress}%</span>
+                          <span className="mini-percent">
+                            {dl.status === 'queued' ? 'Queued' : `${dl.progress}%`}
+                          </span>
                        </div>
                     </div>
                  </div>

@@ -23,5 +23,9 @@ router.get('/all', downloadController.getAllDownloads);
 // Cancel a download
 router.post('/cancel/:id', downloadController.cancelDownload);
 
+// Settings
+router.get('/settings', downloadController.getSettings);
+router.post('/settings', downloadController.updateSettings);
+
 module.exports = router;
 

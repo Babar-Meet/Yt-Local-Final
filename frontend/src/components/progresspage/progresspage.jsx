@@ -21,6 +21,8 @@ const ProgressPage = () => {
       case 'finished': return <CheckCircle2 size={18} color="#2ecc71" />;
       case 'error': return <AlertCircle size={18} color="#e74c3c" />;
       case 'downloading': return <RefreshCw size={18} color="#3ea6ff" className="spin" />;
+      case 'queued': return <Clock size={18} color="#f1c40f" />;
+      case 'starting': return <RefreshCw size={18} color="#3ea6ff" className="spin" />;
       case 'cancelled': return <X size={18} color="#aaa" />;
       default: return <Clock size={18} color="#aaa" />;
     }
@@ -43,10 +45,10 @@ const ProgressPage = () => {
       <div className="progress-page-header">
         <h1>Download Queue & History</h1>
         <div className="header-actions">
-           {downloads.some(d => d.status === 'downloading') && (
+           {downloads.some(d => ['downloading', 'starting', 'queued'].includes(d.status)) && (
               <div className="overall-stat">
                  <RefreshCw size={16} className="spin" />
-                 {downloads.filter(d => d.status === 'downloading').length} Downloading
+                 {downloads.filter(d => ['downloading', 'starting', 'queued'].includes(d.status)).length} Active
               </div>
            )}
           <button className="refresh-btn" onClick={fetchDownloads}>
@@ -87,7 +89,7 @@ const ProgressPage = () => {
                       </span>
                     )}
                   </div>
-                  {(dl.status === 'downloading' || dl.status === 'starting') && (
+                  {(['downloading', 'starting', 'queued'].includes(dl.status)) && (
                     <button 
                       className="cancel-dl-btn" 
                       onClick={() => cancelDownload(dl.id)}
