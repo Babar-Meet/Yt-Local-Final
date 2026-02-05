@@ -16,6 +16,7 @@ const DownloadNav = () => {
   const currentPath = location.pathname
 
   const navItems = [
+    { path: '/download/direct', label: 'Direct Download', icon: <Video size={20} /> },
     { path: '/download/simple', label: 'Simple Download', icon: <Video size={20} /> },
     { path: '/download/advance', label: 'Advance Download', icon: <SlidersHorizontal size={20} /> },
     { path: '/download/batch', label: 'Batch Download', icon: <Users size={20} /> },

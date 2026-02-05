@@ -2,6 +2,7 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import DownloadHeader from '../../components/Header/DownloadHeader'
 import DownloadNav from '../../components/DownloadNav/DownloadNav'
+import DirectDownload from '../../components/directdownload/directdownload'
 import SimpleDownload from '../../components/simpledownload/simpledownload'
 import AdvanceDownload from '../../components/advancedownload/advancedownload'
 import BatchDownload from '../../components/batchdownload/batchdownload'
@@ -20,6 +21,7 @@ const Download = () => {
       <div className="download-content">
         <Routes>
           <Route index element={<Navigate to="/download/simple" replace />} />
+          <Route path="direct" element={<DirectDownload />} />
           <Route path="simple" element={<SimpleDownload />} />
           <Route path="advance" element={<AdvanceDownload />} />
           <Route path="batch" element={<BatchDownload />} />

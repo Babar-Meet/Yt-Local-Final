@@ -68,6 +68,27 @@ export const startDownload = createAsyncThunk(
   }
 );
 
+export const startDirectDownload = createAsyncThunk(
+  'download/startDirectDownload',
+  async (payload, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/download/direct/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        dispatch(fetchDownloads());
+        return { success: true, downloadId: data.download_id };
+      }
+      return rejectWithValue(data.error || 'Failed to start direct download');
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
 export const cancelDownload = createAsyncThunk(
   'download/cancelDownload',
   async (id, { dispatch, rejectWithValue }) => {

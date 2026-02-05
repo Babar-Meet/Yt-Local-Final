@@ -84,6 +84,348 @@ class DownloadService {
     });
   }
 
+  async runYtDlpJson(args, { retryOn403 = true } = {}) {
+    return new Promise((resolve, reject) => {
+      const runOnce = (attempt, extraArgs = []) => {
+        const finalArgs = [...args, ...extraArgs];
+        const child = spawn('yt-dlp', finalArgs);
+
+        let output = '';
+        let error = '';
+
+        child.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+
+        child.stderr.on('data', (data) => {
+          error += data.toString();
+        });
+
+        child.on('close', (code) => {
+          if (code === 0) {
+            try {
+              const info = JSON.parse(output);
+              resolve(info);
+            } catch (err) {
+              reject(new Error(`Failed to parse yt-dlp output: ${err.message}`));
+            }
+            return;
+          }
+
+          if (
+            retryOn403 &&
+            attempt === 1 &&
+            /403/.test(error || '')
+          ) {
+            // Retry with more browser-like headers and Android UA
+            const retryArgs = [
+              '--user-agent',
+              'Mozilla/5.0 (Linux; Android 10; Mobile; rv:109.0) Gecko/20100101 Firefox/119.0',
+              '--add-header',
+              'Referer:https://www.youtube.com/',
+              '--add-header',
+              'Origin:https://www.youtube.com',
+              '--force-ipv4',
+            ];
+            return runOnce(2, retryArgs);
+          }
+
+          reject(new Error(`yt-dlp process exited with code ${code}: ${error}`));
+        });
+      };
+
+      runOnce(1);
+    });
+  }
+
+  async getDirectInfo(url, clientInfo = {}) {
+    const baseArgs = [
+      '--dump-json',
+      '--no-warnings',
+      '--no-playlist',
+      '--extractor-args', 'youtube:player_client=android,web',
+      url
+    ];
+
+    // Prefer a desktop-like UA for the first attempt
+    const ua =
+      (clientInfo && clientInfo.userAgent) ||
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36';
+
+    const argsWithHeaders = [
+      ...baseArgs,
+      '--user-agent',
+      ua,
+      '--add-header',
+      'Referer:https://www.youtube.com/',
+      '--add-header',
+      'Origin:https://www.youtube.com'
+    ];
+
+    return this.runYtDlpJson(argsWithHeaders, { retryOn403: true });
+  }
+
+  buildDirectMetadata(info) {
+    const formats = info.formats || [];
+
+    const getHeight = (fmt) => {
+      if (fmt.height) return fmt.height;
+      if (fmt.resolution && typeof fmt.resolution === 'string') {
+        const match = fmt.resolution.match(/(\d{3,4})p?/i);
+        if (match) return parseInt(match[1], 10);
+      }
+      return null;
+    };
+
+    const videoFormats = formats.filter(
+      (f) => f.vcodec && f.vcodec !== 'none'
+    );
+    const audioFormats = formats.filter(
+      (f) => (!f.vcodec || f.vcodec === 'none') && f.acodec && f.acodec !== 'none'
+    );
+
+    // Collect quality heights
+    const heightSet = new Set();
+    videoFormats.forEach((f) => {
+      const h = getHeight(f);
+      if (h) heightSet.add(h);
+    });
+
+    const orderedHeights = Array.from(heightSet).sort((a, b) => b - a);
+
+    const qualityLabel = (h) => {
+      if (h >= 2160) return '2160p (4K)';
+      if (h >= 1440) return '1440p (2K)';
+      if (h >= 1080) return '1080p (Full HD)';
+      if (h >= 720) return '720p (HD)';
+      if (h >= 480) return '480p';
+      if (h >= 360) return '360p';
+      return `${h}p`;
+    };
+
+    const qualities = orderedHeights.map((h) => ({
+      key: `${h}p`,
+      height: h,
+      label: qualityLabel(h)
+    }));
+
+    // Collect audio languages
+    const languageCounts = {};
+    audioFormats.forEach((f) => {
+      const code = f.language || 'und';
+      languageCounts[code] = (languageCounts[code] || 0) + 1;
+    });
+
+    const languageLabelMap = (code) => {
+      if (!code || code === 'und') return 'Unknown / Original';
+      const lower = code.toLowerCase();
+      if (lower.startsWith('en')) return 'English';
+      if (lower.startsWith('hi')) return 'Hindi';
+      if (lower.startsWith('ur')) return 'Urdu';
+      if (lower.startsWith('ar')) return 'Arabic';
+      if (lower.startsWith('es')) return 'Spanish';
+      if (lower.startsWith('fr')) return 'French';
+      if (lower.startsWith('de')) return 'German';
+      if (lower.startsWith('ru')) return 'Russian';
+      if (lower.startsWith('pt')) return 'Portuguese';
+      if (lower.startsWith('tr')) return 'Turkish';
+      if (lower.startsWith('id')) return 'Indonesian';
+      if (lower.startsWith('bn')) return 'Bengali';
+      if (lower.startsWith('ta')) return 'Tamil';
+      if (lower.startsWith('te')) return 'Telugu';
+      if (lower.startsWith('fa')) return 'Farsi';
+      return code;
+    };
+
+    const audioLanguages = Object.keys(languageCounts).map((code) => ({
+      code,
+      label: languageLabelMap(code)
+    }));
+
+    const originalLanguage =
+      info.original_language ||
+      info.language ||
+      Object.keys(languageCounts).sort(
+        (a, b) => (languageCounts[b] || 0) - (languageCounts[a] || 0)
+      )[0] ||
+      'und';
+
+    const metadata = {
+      id: info.id,
+      title: info.title,
+      thumbnail: info.thumbnail,
+      duration: info.duration,
+      durationText: info.duration_string,
+      uploader: info.uploader,
+      originalLanguage,
+      originalLanguageLabel: languageLabelMap(originalLanguage)
+    };
+
+    const defaultQualityKey = qualities.length > 0 ? qualities[0].key : null;
+
+    return {
+      metadata,
+      qualities,
+      audioLanguages,
+      defaultQualityKey,
+      defaultAudioLanguage: originalLanguage
+    };
+  }
+
+  selectBestFormats(info, { mode, qualityKey, audioLanguage, clientInfo = {} }) {
+    const formats = info.formats || [];
+
+    const isAndroid =
+      clientInfo &&
+      typeof clientInfo.userAgent === 'string' &&
+      /android/i.test(clientInfo.userAgent);
+
+    const getHeight = (fmt) => {
+      if (fmt.height) return fmt.height;
+      if (fmt.resolution && typeof fmt.resolution === 'string') {
+        const match = fmt.resolution.match(/(\d{3,4})p?/i);
+        if (match) return parseInt(match[1], 10);
+      }
+      return null;
+    };
+
+    const videoOnly = [];
+    const audioOnly = [];
+    const muxed = [];
+
+    formats.forEach((fmt) => {
+      const hasVideo = fmt.vcodec && fmt.vcodec !== 'none';
+      const hasAudio = fmt.acodec && fmt.acodec !== 'none';
+      if (hasVideo && !hasAudio) videoOnly.push(fmt);
+      else if (!hasVideo && hasAudio) audioOnly.push(fmt);
+      else if (hasVideo && hasAudio) muxed.push(fmt);
+    });
+
+    const targetHeight = (() => {
+      if (mode === 'planned' && qualityKey && typeof qualityKey === 'string') {
+        const m = qualityKey.match(/(\d{3,4})p/);
+        if (m) return parseInt(m[1], 10);
+      }
+      return null;
+    })();
+
+    const uniqueHeights = new Set();
+    videoOnly.forEach((f) => {
+      const h = getHeight(f);
+      if (h) uniqueHeights.add(h);
+    });
+    muxed.forEach((f) => {
+      const h = getHeight(f);
+      if (h) uniqueHeights.add(h);
+    });
+
+    let heights = Array.from(uniqueHeights).sort((a, b) => b - a);
+
+    // Avoid falling back to 360p unless absolutely nothing else is usable
+    const minPreferredHeight = 480;
+
+    if (targetHeight) {
+      heights = heights.filter((h) => h <= targetHeight);
+      heights.sort((a, b) => b - a);
+    }
+
+    if (heights.length === 0) {
+      return null;
+    }
+
+    const desiredLanguage =
+      mode === 'planned'
+        ? audioLanguage
+        : (info.original_language || info.language || null);
+
+    const scoreVideo = (fmt) => {
+      let score = 0;
+      const h = getHeight(fmt) || 0;
+      score += h;
+      if (fmt.vcodec && /avc1|h264/i.test(fmt.vcodec)) score += 50;
+      if (fmt.ext === 'mp4' || fmt.video_ext === 'mp4') score += 30;
+      if (fmt.dynamic_range === 'HDR') score -= 10;
+      if (isAndroid && fmt.vcodec && /av01|vp9/i.test(fmt.vcodec)) score -= 40;
+      return score;
+    };
+
+    const scoreAudio = (fmt) => {
+      let score = 0;
+      if (fmt.acodec && /mp4a|aac/i.test(fmt.acodec)) score += 40;
+      if (fmt.ext === 'm4a') score += 20;
+      const lang = fmt.language || 'und';
+      if (desiredLanguage && lang === desiredLanguage) score += 80;
+      if (!desiredLanguage && (fmt.language_preference === 10 || fmt.language == null)) {
+        score += 60;
+      }
+      return score;
+    };
+
+    const pickPair = (h) => {
+      const videoCandidates = videoOnly.filter((f) => {
+        const fh = getHeight(f);
+        return fh && Math.abs(fh - h) <= 20;
+      });
+      if (videoCandidates.length === 0) return null;
+
+      videoCandidates.sort((a, b) => scoreVideo(b) - scoreVideo(a));
+      const bestVideo = videoCandidates[0];
+
+      if (audioOnly.length === 0) return null;
+
+      const sortedAudio = [...audioOnly].sort((a, b) => scoreAudio(b) - scoreAudio(a));
+      const bestAudio = sortedAudio[0];
+
+      return `${bestVideo.format_id}+${bestAudio.format_id}`;
+    };
+
+    const pickMuxed = (h) => {
+      const candidates = muxed.filter((f) => {
+        const fh = getHeight(f);
+        return fh && Math.abs(fh - h) <= 20;
+      });
+      if (candidates.length === 0) return null;
+
+      candidates.sort((a, b) => {
+        const av = /avc1|h264/i;
+        const da = a.vcodec && av.test(a.vcodec) ? 1 : 0;
+        const db = b.vcodec && av.test(b.vcodec) ? 1 : 0;
+        if (db !== da) return db - da;
+        const ea = a.ext === 'mp4' ? 1 : 0;
+        const eb = b.ext === 'mp4' ? 1 : 0;
+        if (eb !== ea) return eb - ea;
+        return (b.tbr || 0) - (a.tbr || 0);
+      });
+
+      return candidates[0].format_id;
+    };
+
+    let chosen = null;
+    for (const h of heights) {
+      if (!chosen) {
+        chosen = pickPair(h);
+      }
+      if (!chosen) {
+        chosen = pickMuxed(h);
+      }
+      if (chosen && h >= minPreferredHeight) {
+        break;
+      }
+    }
+
+    if (!chosen) {
+      if (videoOnly.length > 0 && audioOnly.length > 0) {
+        const bestVideo = videoOnly.sort((a, b) => scoreVideo(b) - scoreVideo(a))[0];
+        const bestAudio = audioOnly.sort((a, b) => scoreAudio(b) - scoreAudio(a))[0];
+        chosen = `${bestVideo.format_id}+${bestAudio.format_id}`;
+      } else if (muxed.length > 0) {
+        chosen = muxed.sort((a, b) => scoreVideo(b) - scoreVideo(a))[0].format_id;
+      }
+    }
+
+    return chosen;
+  }
+
   // Get info for all videos in a playlist
   async getPlaylistInfo(url) {
     return new Promise((resolve, reject) => {
@@ -279,6 +621,22 @@ class DownloadService {
     }
 
     return downloadId;
+  }
+
+  async startDirectDownload({ url, saveDir = 'Not Watched', mode = 'original', qualityKey, audioLanguage, metadata = {}, clientInfo = {} }) {
+    const info = await this.getDirectInfo(url, clientInfo);
+    const formatId = this.selectBestFormats(info, {
+      mode,
+      qualityKey,
+      audioLanguage,
+      clientInfo
+    });
+
+    if (!formatId) {
+      throw new Error('Unable to determine a suitable format for this video');
+    }
+
+    return this.startDownload(url, formatId, saveDir, metadata);
   }
 
   processQueue() {

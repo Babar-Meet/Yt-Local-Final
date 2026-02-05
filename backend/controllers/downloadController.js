@@ -23,6 +23,21 @@ exports.getFormats = async (req, res) => {
   }
 };
 
+exports.getDirectMetadata = async (req, res) => {
+  try {
+    const { url, clientInfo } = req.body;
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'URL is required' });
+    }
+
+    const info = await downloadService.getDirectInfo(url, clientInfo || {});
+    const data = downloadService.buildDirectMetadata(info);
+    res.json({ success: true, ...data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch video details: ' + error.message });
+  }
+};
+
 exports.getPlaylistInfo = async (req, res) => {
   try {
     const { url } = req.body;
@@ -46,6 +61,30 @@ exports.startDownload = (req, res) => {
     }
 
     const downloadId = downloadService.startDownload(url, format_id, save_dir, metadata);
+    res.json({ success: true, download_id: downloadId });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.startDirectDownload = async (req, res) => {
+  try {
+    const { url, save_dir, mode, qualityKey, audioLanguage, metadata, clientInfo } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'URL is required' });
+    }
+
+    const downloadId = await downloadService.startDirectDownload({
+      url,
+      saveDir: save_dir,
+      mode: mode || 'original',
+      qualityKey,
+      audioLanguage,
+      metadata,
+      clientInfo: clientInfo || {}
+    });
+
     res.json({ success: true, download_id: downloadId });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -4,6 +4,7 @@ import {
   fetchSettings as fetchSettingsThunk,
   updateSettings as updateSettingsThunk,
   startDownload as startDownloadThunk,
+  startDirectDownload as startDirectDownloadThunk,
   cancelDownload as cancelDownloadThunk,
   retryDownload as retryDownloadThunk,
 } from '../store/slices/downloadSlice';
@@ -12,6 +13,17 @@ export const useDownload = () => {
   const dispatch = useDispatch();
   const downloads = useSelector((state) => state.download.downloads);
   const settings = useSelector((state) => state.download.settings);
+
+  const startDirectDownload = async (payload) => {
+    try {
+      const result = await dispatch(
+        startDirectDownloadThunk(payload)
+      ).unwrap();
+      return { success: true, downloadId: result.downloadId };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
 
   const startDownload = async (url, format_id, save_dir, metadata = {}) => {
     try {
@@ -55,6 +67,7 @@ export const useDownload = () => {
     downloads,
     settings,
     startDownload,
+    startDirectDownload,
     cancelDownload,
     fetchDownloads: () => dispatch(fetchDownloadsThunk()),
     retryDownload,

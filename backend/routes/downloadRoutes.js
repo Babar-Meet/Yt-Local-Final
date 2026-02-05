@@ -8,6 +8,10 @@ router.get('/directories', downloadController.getDirectories);
 // Get formats for a video
 router.post('/formats', downloadController.getFormats);
 
+// Direct download helpers
+router.post('/direct/metadata', downloadController.getDirectMetadata);
+router.post('/direct/start', downloadController.startDirectDownload);
+
 // Get playlist info
 router.post('/playlist-info', downloadController.getPlaylistInfo);
 
