@@ -477,3 +477,137 @@
   filter: grayscale(1);
   cursor: not-allowed;
 }
+
+/* New Tabs for Playlist Global and Modal */
+.playlist-tabs, .modal-tabs {
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.p-tab, .m-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #aaa;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.p-tab:hover, .m-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.p-tab.active, .m-tab.active {
+  background: #3ea6ff;
+  color: #0f0f0f;
+  font-weight: 600;
+}
+
+/* Quality Selector Area */
+.quality-selector-area h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-weight: 500;
+    color: #eee;
+}
+
+.no-common-msg {
+    color: #888;
+    font-style: italic;
+    padding: 10px;
+}
+
+/* Merge Layout in Modal */
+.merge-selection-container {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+}
+
+.merge-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.merge-column h4 {
+    margin: 0 0 12px 0;
+    color: #3ea6ff;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.merge-icon-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3ea6ff;
+    opacity: 0.5;
+}
+
+.formats-list-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.formats-list-mini::-webkit-scrollbar {
+    width: 6px;
+}
+.formats-list-mini::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+}
+
+.format-card-mini {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.format-card-mini:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.format-card-mini.selected {
+    background: rgba(62, 166, 255, 0.15);
+    border-color: #3ea6ff;
+}
+
+.mini-res {
+    display: block;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: white;
+}
+
+.mini-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+.modal-content.large {
+    max-width: 900px;
+    height: 85vh;
+}

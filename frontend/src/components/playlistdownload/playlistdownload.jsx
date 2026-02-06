@@ -38,7 +38,14 @@ const PlaylistDownload = () => {
   const [newDirName, setNewDirName] = useState('')
   const [showNewDirInput, setShowNewDirInput] = useState(false)
   
+  // New States for enhanced selection
+  const [activeTab, setActiveTab] = useState('merge') // merge, video_audio, video_only, audio_only
+  const [modalActiveTab, setModalActiveTab] = useState('merge') // For the modal
   const [modalVideo, setModalVideo] = useState(null) // Video object being configured in modal
+  
+  // Modal specific merge selections
+  const [modalSelectedVideo, setModalSelectedVideo] = useState(null)
+  const [modalSelectedAudio, setModalSelectedAudio] = useState(null)
   
   const { startDownload, downloads } = useDownload()
 
@@ -121,25 +128,33 @@ const PlaylistDownload = () => {
         
         setProcessingStatus('done')
         
-        // Auto-select best common quality
+        // Default behavior: Set to 'merge' and find best common video_only resolution
+        setActiveTab('merge')
+        
         const videoResSets = data.videos.map(v => {
-          const formats = formatsMap[v.id]?.formats?.video_audio || []
+          const formats = formatsMap[v.id]?.formats?.video_only || []
           return new Set(formats.map(f => f.resolution).filter(r => r && r !== 'N/A'))
         })
+
         if (videoResSets.length > 0) {
           const common = Array.from(videoResSets[0]).filter(res => 
             videoResSets.every(set => set.has(res))
           )
-          if (common.length > 0) {
-            // Sort to find best
-            const sortedCommon = common.sort((a, b) => {
-              const getVal = (s) => {
-                const parts = s.split('x')
-                return parseInt(parts[0]) * (parts.length > 1 ? parseInt(parts[1]) : 1)
-              }
-              return getVal(b) - getVal(a)
-            })
+          
+          const sortedCommon = common.sort((a, b) => {
+            const getVal = (s) => {
+              const parts = s.split('x')
+              return parseInt(parts[0]) * (parts.length > 1 ? parseInt(parts[1]) : 1)
+            }
+            return getVal(b) - getVal(a)
+          })
+
+          // Default select the best available common resolution
+          if (sortedCommon.length > 0) {
             setSelectedCommonQuality(sortedCommon[0])
+          } else {
+             // If no commonality, ensure we at least reset
+             setSelectedCommonQuality(null)
           }
         }
       } else {
@@ -152,24 +167,41 @@ const PlaylistDownload = () => {
     }
   }
 
-  // Calculate common qualities
+  // Calculate common qualities based on Active Tab
   const commonQualitiesList = useMemo(() => {
     if (processingStatus !== 'done' || playlistVideos.length === 0) return []
     
-    // Get all resolutions available for each video
+    // Determine which list to look at
+    const formatKey = activeTab === 'video_audio' ? 'video_audio' : 
+                      activeTab === 'audio_only' ? 'audio_only' : 
+                      'video_only' // merge uses video_only for resolution selection
+
+    // Get all resolutions/formats available for each video
     const videoResSets = playlistVideos.map(v => {
-      const formats = videoFormatsMap[v.id]?.formats?.video_audio || []
+      const formats = videoFormatsMap[v.id]?.formats?.[formatKey] || []
+      
+      // For audio only, we might want to group by extension or just show "Best Audio"
+      if (activeTab === 'audio_only') {
+         // Using bitrate or extension as "quality" selector? 
+         // For simplicity in playlist mode, we might just list extensions (m4a, mp3)
+         return new Set(formats.map(f => f.ext).filter(Boolean))
+      }
+      
       return new Set(formats.map(f => f.resolution).filter(r => r && r !== 'N/A'))
     })
 
     if (videoResSets.length === 0) return []
 
-    // Intersection of all sets
+    // Intersection
     const common = Array.from(videoResSets[0]).filter(res => 
       videoResSets.every(set => set.has(res))
     )
 
-    // Sort by resolution (naive approach)
+    if (activeTab === 'audio_only') {
+        return common.sort()
+    }
+
+    // Sort by resolution
     return common.sort((a, b) => {
       const getVal = (s) => {
         const parts = s.split('x')
@@ -177,7 +209,7 @@ const PlaylistDownload = () => {
       }
       return getVal(b) - getVal(a)
     })
-  }, [processingStatus, playlistVideos, videoFormatsMap])
+  }, [processingStatus, playlistVideos, videoFormatsMap, activeTab])
 
   const handleDownloadAll = async () => {
     if (!selectedCommonQuality && Object.keys(customSelections).length === 0) {
@@ -192,21 +224,60 @@ const PlaylistDownload = () => {
     
     for (const v of playlistVideos) {
       let formatId = customSelections[v.id]
+      const vFormats = videoFormatsMap[v.id]?.formats || {}
       
-      // If no custom selection, try common quality
-      if (!formatId && selectedCommonQuality) {
-        const formats = videoFormatsMap[v.id]?.formats?.video_audio || []
-        const matchingFormat = formats.find(f => f.resolution === selectedCommonQuality)
-        if (matchingFormat) {
-          formatId = matchingFormat.format_id
-        }
-      }
-
-      // If still no format, pick best available video_audio as fallback
+      // If no custom selection, try common quality logic
       if (!formatId) {
-        const formats = videoFormatsMap[v.id]?.formats?.video_audio || []
-        if (formats.length > 0) {
-          formatId = formats[0].format_id
+        if (activeTab === 'merge') {
+            // MERGE: Find Best Video (matching common quality if set) + Best Audio
+            let videoFmt = null
+            const videoList = vFormats.video_only || []
+            
+            if (selectedCommonQuality) {
+                videoFmt = videoList.find(f => f.resolution === selectedCommonQuality)
+            }
+            if (!videoFmt && videoList.length > 0) videoFmt = videoList[0] // Fallback best
+            
+            // Find Best Audio
+            const audioList = vFormats.audio_only || []
+            const audioFmt = audioList.length > 0 ? audioList[0] : null // Assuming sorted by best
+            
+            if (videoFmt && audioFmt) {
+                formatId = `${videoFmt.format_id}+${audioFmt.format_id}`
+            } else if (videoFmt) {
+                formatId = videoFmt.format_id
+            }
+            
+        } else if (activeTab === 'video_only') {
+            // VIDEO ONLY
+            const list = vFormats.video_only || []
+            let fmt = null
+            if (selectedCommonQuality) {
+                fmt = list.find(f => f.resolution === selectedCommonQuality)
+            }
+            if (!fmt && list.length > 0) fmt = list[0]
+            if (fmt) formatId = fmt.format_id
+            
+        } else if (activeTab === 'audio_only') {
+            // AUDIO ONLY
+            const list = vFormats.audio_only || []
+            let fmt = null
+            if (selectedCommonQuality) {
+                // For audio, commonQuality is extension
+                fmt = list.find(f => f.ext === selectedCommonQuality)
+            }
+            if (!fmt && list.length > 0) fmt = list[0]
+            if (fmt) formatId = fmt.format_id
+            
+        } else {
+            // VIDEO + AUDIO (Legacy)
+            const list = vFormats.video_audio || []
+            let fmt = null
+            if (selectedCommonQuality) {
+                fmt = list.find(f => f.resolution === selectedCommonQuality)
+            }
+            if (!fmt && list.length > 0) fmt = list[0]
+            if (fmt) formatId = fmt.format_id
         }
       }
 
@@ -347,27 +418,60 @@ const PlaylistDownload = () => {
             <div className="common-quality-section">
               <div className="section-title">
                 <Settings size={18} />
-                Option 1: Set Common Quality for All
+                Global Preferences
               </div>
-              {commonQualitiesList.length > 0 ? (
-                <div className="qualities-grid">
-                  {commonQualitiesList.map(res => (
-                    <div 
-                      key={res} 
-                      className={`quality-chip ${selectedCommonQuality === res ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedCommonQuality(res)
-                        // Clear custom selections if choosing common
-                        // setCustomSelections({})
-                      }}
-                    >
-                      {res}
+              
+              {/* Type Selection Tabs */}
+              <div className="playlist-tabs">
+                <button 
+                    className={`p-tab ${activeTab === 'merge' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('merge'); setSelectedCommonQuality(null); }}
+                >
+                    <Plus size={14} /> Merge (Best Quality)
+                </button>
+                <button 
+                    className={`p-tab ${activeTab === 'video_only' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('video_only'); setSelectedCommonQuality(null); }}
+                >
+                    <Film size={14} /> Video Only
+                </button>
+                <button 
+                    className={`p-tab ${activeTab === 'audio_only' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('audio_only'); setSelectedCommonQuality(null); }}
+                >
+                    <Music size={14} /> Audio Only
+                </button>
+                <button 
+                    className={`p-tab ${activeTab === 'video_audio' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('video_audio'); setSelectedCommonQuality(null); }}
+                >
+                    <Video size={14} /> Standard (Pre-Merged)
+                </button>
+              </div>
+
+              {/* Quality Chips */}
+              <div className="quality-selector-area">
+                  <h4>Select {activeTab === 'audio_only' ? 'Format' : 'Quality'} (Applied to all)</h4>
+                  {commonQualitiesList.length > 0 ? (
+                    <div className="qualities-grid">
+                      {commonQualitiesList.map(res => (
+                        <div 
+                          key={res} 
+                          className={`quality-chip ${selectedCommonQuality === res ? 'active' : ''}`}
+                          onClick={() => {
+                            setSelectedCommonQuality(res)
+                          }}
+                        >
+                          {res}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ color: '#aaa', fontSize: '0.9rem' }}>No common resolutions found across all videos.</div>
-              )}
+                  ) : (
+                    <div className="no-common-msg">
+                        {activeTab === 'merge' ? 'Using "Best Available" for mixed resolutions.' : 'No common options found.'}
+                    </div>
+                  )}
+              </div>
             </div>
           )}
 
@@ -381,17 +485,27 @@ const PlaylistDownload = () => {
               const isProcessed = !!formatsData
               const hasCustom = !!customSelections[video.id]
               
-              let effectiveQuality = 'Best Available'
+              let effectiveQuality = ''
               if (isProcessed) {
                 if (hasCustom) {
-                  const customFmtId = customSelections[video.id]
-                  const fmt = formatsData.formats?.video_audio?.find(f => f.format_id === customFmtId)
-                  effectiveQuality = fmt?.resolution || 'Custom'
+                  // If id contains +, it's a merge
+                  if (String(customSelections[video.id]).includes('+')) {
+                    effectiveQuality = 'Custom Merge'
+                  } else {
+                     // Try to find the format label
+                     const all = [
+                        ...(formatsData.formats?.video_audio||[]), 
+                        ...(formatsData.formats?.video_only||[]), 
+                        ...(formatsData.formats?.audio_only||[])
+                     ]
+                     const startFmt = all.find(f => f.format_id === customSelections[video.id])
+                     effectiveQuality = startFmt ? (startFmt.resolution !== 'N/A' ? startFmt.resolution : startFmt.ext) : 'Custom'
+                  }
                 } else if (selectedCommonQuality) {
-                  effectiveQuality = selectedCommonQuality
+                  effectiveQuality = `${selectedCommonQuality} (${activeTab.replace('_', ' ')})`
                 } else {
-                  const bestFmt = formatsData.formats?.video_audio?.[0]
-                  effectiveQuality = bestFmt?.resolution || 'Best'
+                  // Fallback description
+                  effectiveQuality = activeTab === 'merge' ? 'Best Merge' : 'Best Available'
                 }
               }
               
@@ -486,45 +600,111 @@ const PlaylistDownload = () => {
       {/* Custom Format Modal */}
       {modalVideo && (
         <div className="overlay" onClick={() => setModalVideo(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content large" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Settings size={20} />
-                Custom Quality: {modalVideo.title.substring(0, 40)}...
+                Custom: {modalVideo.title.substring(0, 40)}...
               </h3>
               <button className="close-btn" onClick={() => setModalVideo(null)}>
                 <X size={24} />
               </button>
             </div>
+            
+            <div className="modal-tabs">
+                <button className={`m-tab ${modalActiveTab === 'merge' ? 'active' : ''}`} onClick={() => setModalActiveTab('merge')}>Merge</button>
+                <button className={`m-tab ${modalActiveTab === 'video_only' ? 'active' : ''}`} onClick={() => setModalActiveTab('video_only')}>Video Only</button>
+                <button className={`m-tab ${modalActiveTab === 'audio_only' ? 'active' : ''}`} onClick={() => setModalActiveTab('audio_only')}>Audio Only</button>
+                <button className={`m-tab ${modalActiveTab === 'video_audio' ? 'active' : ''}`} onClick={() => setModalActiveTab('video_audio')}>Std (V+A)</button>
+            </div>
+
             <div className="modal-body">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-                {videoFormatsMap[modalVideo.id]?.formats?.video_audio.map(fmt => (
-                  <div 
-                    key={fmt.format_id}
-                    className={`format-card ${customSelections[modalVideo.id] === fmt.format_id ? 'active' : ''}`}
-                    onClick={() => {
-                        setCustomSelections({...customSelections, [modalVideo.id]: fmt.format_id})
-                        setModalVideo(null)
-                    }}
-                    style={{
-                      background: customSelections[modalVideo.id] === fmt.format_id ? 'rgba(62, 166, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                      border: customSelections[modalVideo.id] === fmt.format_id ? '1px solid #3ea6ff' : '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: 12,
-                      padding: 16,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 4 }}>{fmt.resolution}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#aaa' }}>{fmt.ext} • {formatFileSize(fmt.filesize)}</div>
-                    <div style={{ fontSize: '0.75rem', marginTop: 8, background: 'rgba(255,255,255,0.05)', display: 'inline-block', padding: '2px 6px', borderRadius: 4 }}>
-                      {fmt.fps}fps • {fmt.vcodec}
+              {modalActiveTab === 'merge' ? (
+                  <div className="merge-selection-container">
+                    <div className="merge-column">
+                        <h4>Select Video</h4>
+                        <div className="formats-list-mini">
+                            {(videoFormatsMap[modalVideo.id]?.formats?.video_only || []).map(fmt => (
+                                <div 
+                                    key={fmt.format_id}
+                                    className={`format-card-mini ${modalSelectedVideo?.format_id === fmt.format_id ? 'selected' : ''}`}
+                                    onClick={() => setModalSelectedVideo(fmt)}
+                                >
+                                    <span className="mini-res">{fmt.resolution}</span>
+                                    <span className="mini-meta">{fmt.ext} • {formatFileSize(fmt.filesize)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="merge-icon-divider"><Plus size={24} /></div>
+                    <div className="merge-column">
+                        <h4>Select Audio</h4>
+                        <div className="formats-list-mini">
+                            {(videoFormatsMap[modalVideo.id]?.formats?.audio_only || []).map(fmt => (
+                                <div 
+                                    key={fmt.format_id}
+                                    className={`format-card-mini ${modalSelectedAudio?.format_id === fmt.format_id ? 'selected' : ''}`}
+                                    onClick={() => setModalSelectedAudio(fmt)}
+                                >
+                                    <span className="mini-res">{fmt.language !== 'und' ? fmt.language : 'Audio'}</span>
+                                    <span className="mini-meta">{fmt.ext} • {formatFileSize(fmt.filesize)}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                   </div>
-                ))}
-              </div>
+              ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                    {(videoFormatsMap[modalVideo.id]?.formats?.[modalActiveTab] || []).map(fmt => (
+                      <div 
+                        key={fmt.format_id}
+                        className={`format-card ${customSelections[modalVideo.id] === fmt.format_id ? 'active' : ''}`}
+                        onClick={() => {
+                            setCustomSelections({...customSelections, [modalVideo.id]: fmt.format_id})
+                            setModalVideo(null)
+                        }}
+                        style={{
+                          background: customSelections[modalVideo.id] === fmt.format_id ? 'rgba(62, 166, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          border: customSelections[modalVideo.id] === fmt.format_id ? '1px solid #3ea6ff' : '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: 12,
+                          padding: 16,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 4 }}>{fmt.resolution !== 'N/A' ? fmt.resolution : (fmt.audio_ext || fmt.ext)}</div>
+                        <div style={{ fontSize: '0.85rem', color: '#aaa' }}>{fmt.ext} • {formatFileSize(fmt.filesize)}</div>
+                        <div style={{ fontSize: '0.75rem', marginTop: 8, background: 'rgba(255,255,255,0.05)', display: 'inline-block', padding: '2px 6px', borderRadius: 4 }}>
+                          {fmt.fps ? `${fmt.fps}fps • ` : ''}{fmt.vcodec || fmt.acodec}
+                        </div>
+                      </div>
+                    ))}
+                    {(videoFormatsMap[modalVideo.id]?.formats?.[modalActiveTab] || []).length === 0 && (
+                        <div className="no-formats">No formats for this type.</div>
+                    )}
+                  </div>
+              )}
             </div>
             <div className="modal-footer">
+               {modalActiveTab === 'merge' && (
+                   <button 
+                    className="fetch-btn"
+                    disabled={!modalSelectedVideo || !modalSelectedAudio}
+                    onClick={() => {
+                        if (modalSelectedVideo && modalSelectedAudio) {
+                            setCustomSelections({
+                                ...customSelections, 
+                                [modalVideo.id]: `${modalSelectedVideo.format_id}+${modalSelectedAudio.format_id}`
+                            })
+                            setModalVideo(null)
+                            setModalSelectedVideo(null)
+                            setModalSelectedAudio(null)
+                        }
+                    }}
+                   >
+                       Apply Merge
+                   </button>
+               )}
               <button 
                 className="fetch-btn" 
                 style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
@@ -536,7 +716,7 @@ const PlaylistDownload = () => {
               >
                 Reset to Default
               </button>
-              <button className="fetch-btn" onClick={() => setModalVideo(null)}>Done</button>
+              <button className="fetch-btn" onClick={() => setModalVideo(null)}>Close</button>
             </div>
           </div>
         </div>
