@@ -60,7 +60,7 @@ class DownloadService {
         '--dump-json',
         '--no-warnings',
         '--no-playlist',
-        '--extractor-args', 'youtube:player_client=android,web',
+'--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
         url
       ];
 
@@ -152,7 +152,7 @@ class DownloadService {
       '--dump-json',
       '--no-warnings',
       '--no-playlist',
-      '--extractor-args', 'youtube:player_client=android,web',
+'--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
       url
     ];
 
@@ -441,7 +441,7 @@ class DownloadService {
       const args = [
         '--dump-json',
         '--no-warnings',
-        '--extractor-args', 'youtube:player_client=android,web',
+'--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
         '--flat-playlist',
         url
       ];
@@ -598,7 +598,7 @@ class DownloadService {
       '-f', formatId,
       '-o', outputTemplate,
       '--no-playlist',
-      '--extractor-args', 'youtube:player_client=android,web',
+'--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
       '--newline',
       '--write-thumbnail',
       '--convert-thumbnails', 'jpg',
@@ -752,7 +752,7 @@ class DownloadService {
       '-f', status.formatId,
       '-o', outputTemplate,
       '--no-playlist',
-      '--extractor-args', 'youtube:player_client=android,web',
+'--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
       '--newline',
       '--write-thumbnail',
       '--convert-thumbnails', 'jpg',
