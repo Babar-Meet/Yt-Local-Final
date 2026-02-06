@@ -14,13 +14,16 @@ import {
   Flame, 
   Coffee,
   Volume1,
-  Maximize2
+  Maximize2,
+  Search
 } from 'lucide-react';
 import './Ambience.css';
 
 const Ambience = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const { 
     activeSounds, 
     masterVolume, 
@@ -30,7 +33,8 @@ const Ambience = () => {
     setGlobalVolume,
     stopAll,
     playAll,
-    clearQueue
+    clearQueue,
+    seekSound
   } = useAmbience();
 
   useEffect(() => {
@@ -59,6 +63,17 @@ const Ambience = () => {
     if (title.includes('cafe')) return <Coffee size={24} />;
     return <Music size={24} />;
   };
+
+  const formatTime = (time) => {
+    if (!time) return '0:00';
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const filteredFiles = files.filter(f => 
+    f.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="ambience-container">
@@ -91,12 +106,24 @@ const Ambience = () => {
 
       <div className="ambience-layout">
         <section className="ambience-library">
-          <h2>Library</h2>
+          <div className="library-header">
+             <h2>Library</h2>
+             <div className="ambience-search">
+                <Search size={16} />
+                <input 
+                    type="text" 
+                    placeholder="Search sounds..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+             </div>
+          </div>
+          
           {loading ? (
             <div className="loading">Loading sounds...</div>
           ) : (
             <div className="sounds-grid">
-              {files.map(file => {
+              {filteredFiles.map(file => {
                 const isActive = activeSounds.find(s => s.id === file.id);
                 return (
                   <div 
@@ -124,6 +151,9 @@ const Ambience = () => {
                   </div>
                 );
               })}
+              {filteredFiles.length === 0 && (
+                  <div className="no-results">No sounds found matching "{searchTerm}"</div>
+              )}
             </div>
           )}
         </section>
@@ -145,6 +175,21 @@ const Ambience = () => {
                     </div>
                     <div className="item-info">
                       <span className="item-title">{sound.title}</span>
+                      
+                      {/* Seek Bar */}
+                      <div className="item-seek-wrapper">
+                          <span className="time-display">{formatTime(sound.currentTime)}</span>
+                         <input 
+                            type="range"
+                            className="seek-slider"
+                            min="0"
+                            max={sound.duration || 100}
+                            value={sound.currentTime || 0}
+                            onChange={(e) => seekSound(sound.id, parseFloat(e.target.value))}
+                         />
+                         <span className="time-display">{formatTime(sound.duration)}</span>
+                      </div>
+
                       <div className="item-controls">
                         <button onClick={() => toggleSound(sound)} className="item-play-btn">
                           {sound.isPlaying ? <Pause size={16} /> : <Play size={16} />}
@@ -164,7 +209,7 @@ const Ambience = () => {
                       </div>
                     </div>
                     <button onClick={() => removeSound(sound.id)} className="item-remove-btn">
-                      <Trash2 size={18} />
+                      <Trash2 size={21} />
                     </button>
                   </div>
                 </div>

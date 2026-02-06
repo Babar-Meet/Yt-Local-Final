@@ -7,6 +7,7 @@ import {
   stopAll as stopAllAction,
   playAll as playAllAction,
   clearQueue as clearQueueAction,
+  seekSound as seekSoundAction
 } from '../store/slices/ambienceSlice';
 
 export const useAmbience = () => {
@@ -24,5 +25,6 @@ export const useAmbience = () => {
     stopAll: () => dispatch(stopAllAction()),
     playAll: () => dispatch(playAllAction()),
     clearQueue: () => dispatch(clearQueueAction()),
+    seekSound: (id, time) => dispatch(seekSoundAction({ id, time })),
   };
 };

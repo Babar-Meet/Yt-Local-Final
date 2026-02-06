@@ -289,7 +289,7 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 3px;
 }
 
 .item-volume-slider {
@@ -314,10 +314,101 @@
   border: none;
   color: #555;
   cursor: pointer;
-  padding: 4px;
+  padding: 12px;
   transition: color 0.2s;
 }
 
 .item-remove-btn:hover {
   color: #e74c3c;
+}
+
+/* Search Bar Styles */
+.library-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.library-header h2 {
+    margin-bottom: 0;
+}
+
+.ambience-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 400px;
+    transition: all 0.2s;
+}
+
+.ambience-search:focus-within {
+    border-color: #3ea6ff;
+    box-shadow: 0 0 0 2px rgba(62, 166, 255, 0.2);
+    width: 500px;
+}
+
+.ambience-search input {
+    background: transparent;
+    border: none;
+    color: white;
+    width: 100%;
+    outline: none;
+    font-size: 0.9rem;
+}
+
+.no-results {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+}
+
+/* Seek Slider Styles */
+.item-seek-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    margin-bottom: 12px;
+    background: rgba(0,0,0,0.2);
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.time-display {
+    font-size: 0.7rem;
+    color: #aaa;
+    min-width: 10px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.seek-slider {
+    flex: 1;
+    height: 1px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+}
+
+.seek-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    background: #3ea6ff;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.seek-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
 }

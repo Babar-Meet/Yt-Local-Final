@@ -46,6 +46,29 @@ const ambienceSlice = createSlice({
     clearQueue(state) {
       state.activeSounds = [];
     },
+    updateSoundProgress(state, action) {
+      const { id, currentTime, duration } = action.payload;
+      const s = state.activeSounds.find((s) => s.id === id);
+      if (s) {
+        if (currentTime !== undefined) s.currentTime = currentTime;
+        if (duration !== undefined) s.duration = duration;
+      }
+    },
+    seekSound(state, action) {
+      const { id, time } = action.payload;
+      const s = state.activeSounds.find((s) => s.id === id);
+      if (s) {
+        s.seekTo = time; // Signal for AmbienceSync to process
+        s.currentTime = time; // Optimistic update
+      }
+    },
+    clearSeek(state, action) {
+        const { id } = action.payload;
+        const s = state.activeSounds.find((s) => s.id === id);
+        if (s) {
+            delete s.seekTo;
+        }
+    }
   },
 });
 
@@ -57,6 +80,9 @@ export const {
   stopAll,
   playAll,
   clearQueue,
+  updateSoundProgress,
+  seekSound,
+  clearSeek
 } = ambienceSlice.actions;
 
 export default ambienceSlice.reducer;
