@@ -15,8 +15,12 @@ import {
   DollarSign,
   X,
   Download,
+  Music,
+  Play,
+  Pause,
 } from "lucide-react";
 import "./Header.css";
+import { useAmbience } from "../../hooks/useAmbience";
 
 const Header = ({ toggleSidebar }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,6 +32,7 @@ const Header = ({ toggleSidebar }) => {
 
   const navigate = useNavigate();
   const { downloads } = useDownload();
+  const { activeSounds, playAll, stopAll } = useAmbience();
   const aboutRef = useRef(null);
   const socialsRef = useRef(null);
   const searchResultsRef = useRef(null);
@@ -462,6 +467,24 @@ const Header = ({ toggleSidebar }) => {
           >
             <Download size={20} className="download-icon-pulse" />
             <span className="download-count">{activeDownloads.length}</span>
+          </div>
+        )}
+
+        {/* Ambience Toggle */}
+        {activeSounds.length > 0 && (
+          <div 
+            className={`header__ambience-toggle ${!activeSounds.some(s => s.isPlaying) ? 'paused' : ''}`}
+            onClick={() => {
+              if (activeSounds.some(s => s.isPlaying)) {
+                stopAll();
+              } else {
+                playAll();
+              }
+            }}
+            title={activeSounds.some(s => s.isPlaying) ? "Pause Ambience" : "Play Ambience"}
+          >
+            {activeSounds.some(s => s.isPlaying) ? <Pause size={18} /> : <Play size={18} />}
+            <span className="ambience-label">Ambience</span>
           </div>
         )}
 
