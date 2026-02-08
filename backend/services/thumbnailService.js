@@ -17,6 +17,31 @@ let thumbnailState = {
   allVideoFiles: []
 };
 
+// Helper for recursive thumbnail search
+const findThumbnailAnywhere = (dir, fileName, extensions) => {
+  try {
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+    
+    // Check files in current directory first
+    for (const ext of extensions) {
+      if (fs.existsSync(path.join(dir, fileName + ext))) {
+        return true;
+      }
+    }
+    
+    // Search in subdirectories
+    for (const item of items) {
+      if (item.isDirectory()) {
+        const found = findThumbnailAnywhere(path.join(dir, item.name), fileName, extensions);
+        if (found) return true;
+      }
+    }
+  } catch (err) {
+    console.error(`Error searching thumbnails in ${dir}:`, err);
+  }
+  return false;
+};
+
 // Check if thumbnail already exists for a video
 function doesThumbnailExist(videoFile) {
   const { relativePath } = videoFile;
@@ -28,6 +53,7 @@ function doesThumbnailExist(videoFile) {
   
   const thumbnailExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
   
+  // 1. Try to find thumbnail in the same relative path
   for (const thumbExt of thumbnailExtensions) {
     const thumbPath = path.join(thumbnailsDir, thumbnailRelativePath + thumbExt);
     if (fs.existsSync(thumbPath)) {
@@ -35,15 +61,16 @@ function doesThumbnailExist(videoFile) {
     }
   }
   
-  // Also check root thumbnails folder for backward compatibility
+  // 2. Also check root thumbnails folder for backward compatibility
   for (const thumbExt of thumbnailExtensions) {
     const thumbPath = path.join(thumbnailsDir, nameWithoutExt + thumbExt);
     if (fs.existsSync(thumbPath)) {
       return true;
     }
   }
-  
-  return false;
+
+  // 3. Search in entire thumbnails directory
+  return findThumbnailAnywhere(thumbnailsDir, nameWithoutExt, thumbnailExtensions);
 }
 
 // Get videos that need thumbnails

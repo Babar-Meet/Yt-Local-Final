@@ -92,6 +92,31 @@ exports.getVideoInfo = (filePath, relativePath) => {
   };
 };
 
+// Helper for recursive thumbnail search
+const findThumbnailAnywhere = (dir, fileName, extensions, baseDir) => {
+  try {
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+    
+    // Check files in current directory first
+    for (const ext of extensions) {
+      if (fs.existsSync(path.join(dir, fileName + ext))) {
+        return path.relative(baseDir, path.join(dir, fileName + ext));
+      }
+    }
+    
+    // Search in subdirectories
+    for (const item of items) {
+      if (item.isDirectory()) {
+        const result = findThumbnailAnywhere(path.join(dir, item.name), fileName, extensions, baseDir);
+        if (result) return result;
+      }
+    }
+  } catch (err) {
+    console.error(`Error searching thumbnails in ${dir}:`, err);
+  }
+  return null;
+};
+
 // Get thumbnail path, return existing thumbnail or placeholder ONLY
 exports.getThumbnail = (thumbnailRelativePath, videoFilePath) => {
   const thumbnailExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
@@ -112,6 +137,12 @@ exports.getThumbnail = (thumbnailRelativePath, videoFilePath) => {
     if (fs.existsSync(thumbPath)) {
       return `/thumbnails/${encodeURIComponent(fileName + thumbExt)}`;
     }
+  }
+
+  // NEW: Search in entire thumbnails directory
+  const foundRelativePath = findThumbnailAnywhere(thumbnailsBaseDir, fileName, thumbnailExtensions, thumbnailsBaseDir);
+  if (foundRelativePath) {
+    return `/thumbnails/${encodeURIComponent(foundRelativePath.replace(/\\/g, '/'))}`;
   }
   
   // If thumbnail not found, return placeholder immediately

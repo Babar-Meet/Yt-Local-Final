@@ -143,9 +143,9 @@ const Header = ({ toggleSidebar }) => {
       return;
     }
 
-    // Check if query starts with "?/"
-    if (searchQuery.startsWith("?/")) {
-      // Extract the search term (remove "?/")
+    // Check if query starts with "??"
+    if (searchQuery.startsWith("??")) {
+      // Extract the search term (remove "??")
       const youtubeQuery = searchQuery.substring(2).trim();
       if (youtubeQuery) {
         const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(youtubeQuery)}`;
@@ -169,8 +169,8 @@ const Header = ({ toggleSidebar }) => {
     const value = e.target.value;
     setSearchQuery(value);
     
-    // If query starts with "?/", don't show local results
-    if (value.startsWith("?/")) {
+    // If query starts with "??", don't show local results
+    if (value.startsWith("??")) {
       setShowSearchResults(false);
       return;
     }
@@ -337,11 +337,11 @@ const Header = ({ toggleSidebar }) => {
                 ref={searchInputRef}
                 type="text"
                 className="search__input"
-                placeholder="Search local videos or type ?/ to search YouTube"
+                placeholder="Search local videos or type ?? to search YouTube"
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onFocus={() => {
-                  if (searchQuery && !searchQuery.startsWith("?/")) {
+                  if (searchQuery && !searchQuery.startsWith("??")) {
                     searchLocally(searchQuery);
                   }
                 }}
@@ -442,9 +442,9 @@ const Header = ({ toggleSidebar }) => {
               <div className="search-results">
                 <div className="search-no-results">
                   <span>No local videos found for "{searchQuery}"</span>
-                  {!searchQuery.startsWith("?/") && (
+                  {!searchQuery.startsWith("??") && (
                     <div className="search-youtube-hint">
-                      Press Enter to search on YouTube with "?/{searchQuery}"
+                      Press Enter to search on YouTube with "??{searchQuery}"
                     </div>
                   )}
                 </div>
