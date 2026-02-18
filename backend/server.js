@@ -3,21 +3,23 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const http = require('http');
+const WebSocket = require('ws');
+const downloadManager = require('./services/DownloadManager');
 
-// Import routes
 const videoRoutes = require('./routes/videoRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const downloadRoutes = require('./routes/downloadRoutes');
 const ambienceRoutes = require('./routes/ambienceRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const subscriptionService = require('./services/subscriptionService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Ensure public directory exists
 const publicDir = path.join(__dirname, 'public');
 const thumbnailsDir = path.join(publicDir, 'thumbnails');
 const trashDir = path.join(publicDir, 'trash');
@@ -28,24 +30,63 @@ const ambienceThumbnailsDir = path.join(thumbnailsDir, 'ambience');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Serve static files
 app.use('/public', express.static(publicDir));
 app.use('/thumbnails', express.static(thumbnailsDir));
-app.use('/trash', express.static(trashDir)); // <- Moved here, after trashDir is defined
+app.use('/trash', express.static(trashDir));
 
-// Use routes
 app.use('/api/videos', videoRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/download', downloadRoutes);
 app.use('/api/ambience', ambienceRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
+const frontendBuildPath = path.join(__dirname, '../frontend/dist');
+const frontendBuildExists = fs.existsSync(frontendBuildPath) && fs.existsSync(path.join(frontendBuildPath, 'index.html'));
+
+if (frontendBuildExists) {
+  app.use(express.static(frontendBuildPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+} else {
+  app.get('*', (req, res) => {
+    res.json({
+      message: 'PDEA Backend Server',
+      status: 'Running',
+      endpoints: {
+        videos: '/api/videos',
+        health: '/api/health',
+        download: '/api/download',
+        ambience: '/api/ambience',
+        subscriptions: '/api/subscriptions'
+      },
+      note: 'Frontend build not found. Run "npm run build" in frontend directory to serve the frontend.'
+    });
+  });
+}
+
+const server = http.createServer(app);
+
+const wss = new WebSocket.Server({ server, path: '/ws/downloads' });
+
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected');
+  downloadManager.registerWSClient(ws);
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+  });
+});
+
+server.listen(PORT, '0.0.0.0', async () => {
   const networkInterfaces = require('os').networkInterfaces();
   const getLocalIp = () => {
     for (const name of Object.keys(networkInterfaces)) {
       for (const net of networkInterfaces[name]) {
-        // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
         if (net.family === 'IPv4' && !net.internal) {
           return net.address;
         }
@@ -61,4 +102,15 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🖼️  Thumbnails: ${thumbnailsDir}`);
   console.log(`🗑️  Trash folder: ${trashDir}`);
   console.log(`📥 Download API: http://localhost:${PORT}/api/download`);
+  console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws/downloads`);
+  
+  // Initialize subscription service
+  await subscriptionService.initialize();
+  console.log('📡 Subscription service initialized');
+  
+  // Load paused downloads from previous session
+  const loadedPaused = downloadManager.loadPausedDownloads();
+  if (loadedPaused > 0) {
+    console.log(`⏸️  Loaded ${loadedPaused} paused downloads from previous session`);
+  }
 });

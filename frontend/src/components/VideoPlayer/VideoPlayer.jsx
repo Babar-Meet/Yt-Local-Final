@@ -173,13 +173,30 @@ const VideoPlayer = forwardRef(({ video, videos, onNextVideo, onPreviousVideo, c
     if (leftSkipTimeoutRef.current) clearTimeout(leftSkipTimeoutRef.current);
     if (rightSkipTimeoutRef.current) clearTimeout(rightSkipTimeoutRef.current);
     if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+    if (progressSaveTimeoutRef.current) clearTimeout(progressSaveTimeoutRef.current);
+    
+    const handleBeforeUnload = () => {
+      if (pendingProgressRef.current !== null && videoRef.current) {
+        navigator.sendBeacon(
+          `${API_BASE_URL}/api/videos/progress`,
+          JSON.stringify({
+            videoId: video.id || video.relativePath,
+            timestamp: pendingProgressRef.current
+          })
+        );
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
       // Cleanup when component unmounts
       clearAllTimeouts();
       if (resumeTimerRef.current) clearInterval(resumeTimerRef.current);
+      if (progressSaveTimeoutRef.current) clearTimeout(progressSaveTimeoutRef.current);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [video]) // Run when video prop changes
+  }, [video])
 
   // Check for saved progress on load
   useEffect(() => {
@@ -231,8 +248,9 @@ const VideoPlayer = forwardRef(({ video, videos, onNextVideo, onPreviousVideo, c
 
   const saveProgress = async (time) => {
     if (!video || !time) return;
+    
     try {
-      await fetch(`${API_BASE_URL}/api/videos/progress`, {
+      const response = await fetch(`${API_BASE_URL}/api/videos/progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,6 +260,10 @@ const VideoPlayer = forwardRef(({ video, videos, onNextVideo, onPreviousVideo, c
           timestamp: time
         }),
       });
+      
+      if (!response.ok) {
+        console.error('Backend returned error:', response.status, response.statusText);
+      }
     } catch (error) {
       console.error("Error saving progress:", error);
     }
@@ -298,7 +320,29 @@ const VideoPlayer = forwardRef(({ video, videos, onNextVideo, onPreviousVideo, c
       }
     }
     
+    const handlePause = () => {
+      if (pendingProgressRef.current !== null) {
+        saveProgress(pendingProgressRef.current);
+        lastSavedTimeRef.current = pendingProgressRef.current;
+        pendingProgressRef.current = null;
+      }
+      if (progressSaveTimeoutRef.current) {
+        clearTimeout(progressSaveTimeoutRef.current);
+        progressSaveTimeoutRef.current = null;
+      }
+    }
+    
     const handleEnded = () => {
+      if (pendingProgressRef.current !== null) {
+        saveProgress(pendingProgressRef.current);
+        lastSavedTimeRef.current = pendingProgressRef.current;
+        pendingProgressRef.current = null;
+      }
+      if (progressSaveTimeoutRef.current) {
+        clearTimeout(progressSaveTimeoutRef.current);
+        progressSaveTimeoutRef.current = null;
+      }
+      
       if (loopSingle) {
         // Loop current video
         videoElement.currentTime = 0
@@ -322,11 +366,13 @@ const VideoPlayer = forwardRef(({ video, videos, onNextVideo, onPreviousVideo, c
     }
     
     videoElement.addEventListener('loadedmetadata', handleLoadedMetadata)
+    videoElement.addEventListener('pause', handlePause)
     videoElement.addEventListener('ended', handleEnded)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     
     return () => {
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      videoElement.removeEventListener('pause', handlePause)
       videoElement.removeEventListener('ended', handleEnded)
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
       clearAllTimeouts()
@@ -824,11 +870,23 @@ const VideoPlayer = forwardRef(({ video, videos, onNextVideo, onPreviousVideo, c
     }
   }
 
+  const progressSaveTimeoutRef = useRef(null);
+  const pendingProgressRef = useRef(null);
+
+  // No longer using debounce for periodic updates to ensure it actually fires during playback
+  // progressSaveTimeoutRef.current will effectively be unused for periodic updates but kept for cleanup compatibility
+
   const handleTimeUpdate = () => {
+    if (!videoRef.current) return;
+    
     const time = videoRef.current.currentTime;
     setCurrentTime(time);
     
-    // Save progress logic (every 5 seconds)
+    // Update pending progress for pause/unload handlers
+    pendingProgressRef.current = time;
+    
+    // Save progress more frequently - every 5 seconds of playback
+    // We check against lastSavedTimeRef to ensure we don't save too often
     if (Math.abs(time - lastSavedTimeRef.current) > 5) {
       saveProgress(time);
       lastSavedTimeRef.current = time;

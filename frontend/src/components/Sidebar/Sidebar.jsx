@@ -10,7 +10,9 @@ import {
   Trash2,
   Download,
   Wind,
-  Headphones
+  Headphones,
+  Users,
+  Palette
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -39,9 +41,9 @@ const Sidebar = ({ size, videos }) => {
   }, [])
 
   const mainItems = [
-    { icon: <Home size={24} />, label: 'Home', path: '/' },
-    { icon: <Headphones  size={24} />, label: 'Ambience', path: '/ambience' },
-    { icon: <Download size={24} />, label: 'Download', path: '/download' }
+    { icon: <Home />, label: 'Home', path: '/' },
+    { icon: <Headphones />, label: 'Ambience', path: '/ambience' },
+    { icon: <Download />, label: 'Download', path: '/download' }
   ]
 
   // Get all folders from videos (excluding thumbnails and playlist folders)
@@ -60,7 +62,7 @@ const Sidebar = ({ size, videos }) => {
     return Array.from(folderSet)
       .filter(folder => {
         const lowerFolder = folder.toLowerCase()
-        return lowerFolder !== 'thumbnails' && !lowerFolder.startsWith('playlist') && lowerFolder !== 'trash' && lowerFolder !== 'ambience'
+        return lowerFolder !== 'thumbnails' && !lowerFolder.startsWith('playlist') && !lowerFolder.startsWith('subscriptions') && lowerFolder !== 'trash' && lowerFolder !== 'ambience'
       })
       .map(folder => ({
         name: folder, // Keep original name for display
@@ -95,14 +97,40 @@ const Sidebar = ({ size, videos }) => {
       .sort((a, b) => a.displayName.localeCompare(b.displayName))
   }
 
+  // Get all channels from videos (folders that start with "Subscriptions")
+  const getAllChannels = () => {
+    if (!videos) return []
+    
+    const channelMap = new Map()
+    
+    videos.forEach(video => {
+      if (video.folder && video.folder.toLowerCase().startsWith('subscriptions')) {
+        // Remove "Subscriptions" prefix and trim whitespace for display
+        const displayName = video.folder
+          .replace(/^subscriptions\s*\/?\s*/i, '') // Remove prefix (case insensitive)
+          .trim()
+        
+        channelMap.set(video.folder, {
+          originalName: video.folder,
+          displayName: displayName || video.folder,
+          count: (channelMap.get(video.folder)?.count || 0) + 1
+        })
+      }
+    })
+    
+    return Array.from(channelMap.values())
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+  }
+
   const allFolders = getAllFolders()
   const allPlaylists = getAllPlaylists()
+  const allChannels = getAllChannels()
 
   const libraryItems = [
     // { icon: <Folder size={24} />, label: 'My Videos', path: '/category/' },
-    { icon: <Folder size={24} />, label: 'All Videos', path: '/category/all' },
+    { icon: <Folder />, label: 'All Videos', path: '/category/all' },
     { 
-      icon: <Trash2 size={24} />, 
+      icon: <Trash2 />, 
       label: 'Trash', 
       path: '/trash',
       badge: trashCount > 0 ? trashCount : null
@@ -166,7 +194,7 @@ const Sidebar = ({ size, videos }) => {
                   className={`sidebar__item ${location.pathname === `/category/${encodeURIComponent(folder.path)}` ? 'active' : ''}`}
                 >
                   <span className="sidebar__icon">
-                    <FolderOpen size={24} />
+                    <FolderOpen />
                   </span>
                   <div className="sidebar__label-wrapper">
                     <span className="sidebar__label">{folder.name} ({folder.count})</span>
@@ -180,19 +208,43 @@ const Sidebar = ({ size, videos }) => {
 
         {/* Playlists Section */}
         {allPlaylists.length > 0 && (
+          <>
+            <div className="sidebar__section">
+              <h3 className="sidebar__title">Playlists</h3>
+              {allPlaylists.map((playlist, index) => (
+                <Link
+                  key={index}
+                  to={`/category/${encodeURIComponent(playlist.originalName)}`}
+                  className={`sidebar__item ${location.pathname === `/category/${encodeURIComponent(playlist.originalName)}` ? 'active' : ''}`}
+                >
+                  <span className="sidebar__icon">
+                    <ListVideo />
+                  </span>
+                  <div className="sidebar__label-wrapper">
+                    <span className="sidebar__label">{playlist.displayName} ({playlist.count})</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="sidebar__divider" />
+          </>
+        )}
+
+        {/* Channels Section */}
+        {allChannels.length > 0 && (
           <div className="sidebar__section">
-            <h3 className="sidebar__title">Playlists</h3>
-            {allPlaylists.map((playlist, index) => (
+            <h3 className="sidebar__title">Channels</h3>
+            {allChannels.map((channel, index) => (
               <Link
                 key={index}
-                to={`/category/${encodeURIComponent(playlist.originalName)}`}
-                className={`sidebar__item ${location.pathname === `/category/${encodeURIComponent(playlist.originalName)}` ? 'active' : ''}`}
+                to={`/category/${encodeURIComponent(channel.originalName)}`}
+                className={`sidebar__item ${location.pathname === `/category/${encodeURIComponent(channel.originalName)}` ? 'active' : ''}`}
               >
                 <span className="sidebar__icon">
-                  <ListVideo size={24} />
+                  <Users />
                 </span>
                 <div className="sidebar__label-wrapper">
-                  <span className="sidebar__label">{playlist.displayName} ({playlist.count})</span>
+                  <span className="sidebar__label">{channel.displayName} ({channel.count})</span>
                 </div>
               </Link>
             ))}
@@ -201,11 +253,21 @@ const Sidebar = ({ size, videos }) => {
 
         <div className="sidebar__divider" />
 
-        {/* More Options - Only Settings remains */}
+        {/* More Options */}
         <div className="sidebar__section">
-          <Link to="/VideoplayerSettings" className="sidebar__item">
-            <span className="sidebar__icon"><Settings size={24} /></span>
+          <Link
+            to="/VideoplayerSettings"
+            className={`sidebar__item ${location.pathname === '/VideoplayerSettings' ? 'active' : ''}`}
+          >
+            <span className="sidebar__icon"><Settings /></span>
             <span className="sidebar__label">Settings</span>
+          </Link>
+          <Link
+            to="/theme"
+            className={`sidebar__item ${location.pathname === '/theme' ? 'active' : ''}`}
+          >
+            <span className="sidebar__icon"><Palette /></span>
+            <span className="sidebar__label">Theme</span>
           </Link>
         </div>
 

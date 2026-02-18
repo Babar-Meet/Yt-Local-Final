@@ -2,6 +2,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const downloadManager = require('./DownloadManager');
+const thumbnailService = require('./thumbnailService');
+
 
 const publicDir = path.join(__dirname, '../public');
 const thumbnailsDir = path.join(publicDir, 'thumbnails');
@@ -15,9 +18,13 @@ const getYtDlpPath = () => {
   return 'yt-dlp';
 };
 
-// Store active downloads and their processes
-const downloads = new Map();
-const processes = new Map();
+const sanitizeFilename = (filename) => {
+  return filename
+    .replace(/[<>:"\/\\|?*]/g, '')
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .trim()
+    .substring(0, 200) || 'video';
+};
 
 const queue = [];
 let activeDownloadsCount = 0;
@@ -29,7 +36,6 @@ const defaultSettings = {
 
 class DownloadService {
   constructor() {
-    this.downloads = downloads;
     this.queue = queue;
     this.settings = this.loadSettings();
     this.activeBatchProcesses = 0;
@@ -49,11 +55,10 @@ class DownloadService {
   saveSettings(newSettings) {
     this.settings = { ...this.settings, ...newSettings };
     fs.writeFileSync(settingsPath, JSON.stringify(this.settings, null, 2));
-    this.processQueue(); // Re-trigger if limit increased
+    this.processQueue();
     return this.settings;
   }
 
-  // Get formats for a video URL
   async getFormats(url) {
     return new Promise((resolve, reject) => {
       const args = [
@@ -126,7 +131,6 @@ class DownloadService {
             attempt === 1 &&
             /403/.test(error || '')
           ) {
-            // Retry with more browser-like headers and Android UA
             const retryArgs = [
               '--user-agent',
               'Mozilla/5.0 (Linux; Android 10; Mobile; rv:109.0) Gecko/20100101 Firefox/119.0',
@@ -156,7 +160,6 @@ class DownloadService {
       url
     ];
 
-    // Prefer a desktop-like UA for the first attempt
     const ua =
       (clientInfo && clientInfo.userAgent) ||
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36';
@@ -193,7 +196,6 @@ class DownloadService {
       (f) => (!f.vcodec || f.vcodec === 'none') && f.acodec && f.acodec !== 'none'
     );
 
-    // Collect quality heights
     const heightSet = new Set();
     videoFormats.forEach((f) => {
       const h = getHeight(f);
@@ -218,7 +220,6 @@ class DownloadService {
       label: qualityLabel(h)
     }));
 
-    // Collect audio languages
     const languageCounts = {};
     audioFormats.forEach((f) => {
       const code = f.language || 'und';
@@ -335,7 +336,6 @@ class DownloadService {
 
     let heights = Array.from(uniqueHeights).sort((a, b) => b - a);
 
-    // Avoid falling back to 360p unless absolutely nothing else is usable
     const minPreferredHeight = 480;
 
     if (targetHeight) {
@@ -440,7 +440,6 @@ class DownloadService {
     return chosen;
   }
 
-  // Get info for all videos in a playlist
   async getPlaylistInfo(url) {
     return new Promise((resolve, reject) => {
       const args = [
@@ -471,16 +470,13 @@ class DownloadService {
         }
 
         try {
-          // yt-dlp returns one JSON object per line for playlists
           const lines = output.trim().split('\n');
           const videos = lines.map(line => {
             if (!line.trim()) return null;
             try {
                 const info = JSON.parse(line);
                 let thumbnail = info.thumbnail;
-                // If simple thumbnail missing, try to find one in thumbnails array
                 if (!thumbnail && info.thumbnails && Array.isArray(info.thumbnails) && info.thumbnails.length > 0) {
-                     // Get the last one as it is usually the highest quality
                      thumbnail = info.thumbnails[info.thumbnails.length - 1].url;
                 }
                 
@@ -505,7 +501,6 @@ class DownloadService {
     });
   }
 
-  // Process raw formats into structured data
   processFormats(info) {
     const formatsByType = {
       video_only: [],
@@ -531,10 +526,9 @@ class DownloadService {
         tbr: fmt.tbr,
         language: fmt.language || 'und',
         language_preference: fmt.language_preference,
-        is_original: fmt.language_preference === 10 || (info.original_url && !fmt.language) // heuristics
+        is_original: fmt.language_preference === 10 || (info.original_url && !fmt.language)
       };
 
-      // Determine type
       const hasVideo = fmt.vcodec && fmt.vcodec !== 'none';
       const hasAudio = fmt.acodec && fmt.acodec !== 'none';
 
@@ -547,7 +541,6 @@ class DownloadService {
       }
     });
 
-    // Sort formats
     formatsByType.video_only.sort((a, b) => {
         const getRes = (res) => {
             if (!res || res === 'N/A') return 0;
@@ -570,33 +563,27 @@ class DownloadService {
         view_count: info.view_count,
         upload_date: info.upload_date,
         language: info.language,
-        original_language: info.language // YouTube often provides this at top level
+        original_language: info.language
       },
       formats: formatsByType
     };
   }
 
-  // Start a download
   startDownload(url, formatId, saveDir = 'Not Watched', metadata = {}) {
     const downloadId = uuidv4();
     
-    // Create status object
-    this.downloads.set(downloadId, {
-      id: downloadId,
-      status: 'starting',
-      progress: 0,
-      speed: '0',
-      eta: '0',
-      filename: metadata.title || null,
-      title: metadata.title || null,
+    const safeTitle = metadata.title ? sanitizeFilename(metadata.title) : null;
+    
+    downloadManager.registerDownload(downloadId, {
+      filename: safeTitle,
+      title: safeTitle,
       thumbnail: metadata.thumbnail || null,
       batchId: metadata.batchId || null,
       index: metadata.index,
       formatId,
       error: null,
       saveDir,
-      url,
-      timestamp: new Date().toISOString()
+      url
     });
 
     const outputDir = path.join(publicDir, saveDir);
@@ -612,38 +599,57 @@ class DownloadService {
     const prefix = metadata.index !== undefined ? `${metadata.index.toString().padStart(2, '0')} ` : '';
     const outputTemplate = path.join(outputDir, `${prefix}%(title)s.%(ext)s`);
 
+    // Check if thumbnail already exists anywhere in the system
+    const titleForCheck = metadata.title || 'video';
+    const thumbnailExists = thumbnailService.doesThumbnailExist({
+      relativePath: path.join(saveDir, `${prefix}${titleForCheck}.mp4`)
+    });
+
     const args = [
       '-f', formatId,
       '-o', outputTemplate,
       '--no-playlist',
 '--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
       '--newline',
-      '--write-thumbnail',
-      '--convert-thumbnails', 'jpg',
-      '--output', `thumbnail:${path.join(targetThumbDir, `${prefix}%(title)s`)}`,
+    ];
+
+    if (!thumbnailExists) {
+      args.push('--write-thumbnail');
+      args.push('--convert-thumbnails', 'jpg');
+      args.push('--output', `thumbnail:${path.join(targetThumbDir, `${prefix}%(title)s.%(ext)s`)}`);
+    }
+
+    args.push(
       '--retries', '10',
       '--fragment-retries', '10',
       '--socket-timeout', '30',
       '--no-mtime',
+      '--restrict-filenames',
       url
-    ];
+    );
+
 
     
-    // Add ffmpeg post-processing if merging
     if (formatId.includes('+')) {
        args.push('--merge-output-format', 'mp4');
     }
 
-    // If it's a single download (no batchId), start immediately bypassing queue logic
-    // OR if we want order even for singles, we add them with a special priority.
-    // User said: "playlist downlad count in setting not effact the simple vidoe downlad".
-    
     if (!metadata.batchId) {
-      this.downloads.get(downloadId).status = 'starting';
-      this.startProcess(downloadId, args);
+      downloadManager.updateProgress(downloadId, { status: 'starting' });
+      this.startProcess(downloadId, args, outputTemplate);
+      
+      // Notify subscription service about new download
+      try {
+        const subService = require('./subscriptionService');
+        if (typeof subService.incrementActiveDownloads === 'function') {
+          subService.incrementActiveDownloads();
+        }
+      } catch (e) {
+        // Ignore if error loading subService
+      }
     } else {
-      this.queue.push({ downloadId, args, isBatch: true });
-      this.downloads.get(downloadId).status = 'queued';
+      this.queue.push({ downloadId, args, outputTemplate, isBatch: true });
+      downloadManager.updateProgress(downloadId, { status: 'queued' });
       this.processQueue();
     }
 
@@ -653,7 +659,6 @@ class DownloadService {
   async startDirectDownload({ url, saveDir = 'Not Watched', mode = 'original', qualityKey, audioLanguage, metadata = {}, clientInfo = {} }) {
     const info = await this.getDirectInfo(url, clientInfo);
     
-    // Parse metadata using our helper to get robust thumbnail and fields
     const parsedData = this.buildDirectMetadata(info);
     
     const finalMetadata = {
@@ -676,55 +681,68 @@ class DownloadService {
   }
 
   processQueue() {
-    // Basic logic: if active batch processes < limit, start next batch item
     while (this.activeBatchProcesses < this.settings.maxConcurrentPlaylistDownloads && this.queue.length > 0) {
       const idx = this.queue.findIndex(item => item.isBatch);
       if (idx === -1) break;
 
-      const { downloadId, args } = this.queue.splice(idx, 1)[0];
-      const status = this.downloads.get(downloadId);
+      const { downloadId, args, outputTemplate } = this.queue.splice(idx, 1)[0];
+      const status = downloadManager.getDownload(downloadId);
       
-      if (status.status === 'cancelled') continue;
+      if (status && status.status === 'cancelled') continue;
 
       this.activeBatchProcesses++;
-      status.status = 'starting';
-      this.downloads.set(downloadId, status);
-      this.startProcess(downloadId, args, true);
+      downloadManager.updateProgress(downloadId, { status: 'starting' });
+      this.startProcess(downloadId, args, outputTemplate, true);
+      // Notify subscription service about new batch download
+      try {
+        const subService = require('./subscriptionService');
+        if (typeof subService.incrementActiveDownloads === 'function') {
+          subService.incrementActiveDownloads();
+        }
+      } catch (e) {
+        // Ignore
+      }
     }
   }
 
-  startProcess(downloadId, args, isBatch = false) {
-    const status = this.downloads.get(downloadId);
+  startProcess(downloadId, args, outputTemplate, isBatch = false) {
     const process = spawn(getYtDlpPath(), args);
-    processes.set(downloadId, process);
+    downloadManager.registerProcess(downloadId, process, outputTemplate);
 
     process.stdout.on('data', (data) => {
       const line = data.toString();
       
       if (line.includes('[download]')) {
-        const percentMatch = line.match(/(\d+\.\d+)%/);
+        const percentMatch = line.match(/(\d+\.?\d*)%/);
         const speedMatch = line.match(/at\s+([^\s]+)/);
         const etaMatch = line.match(/ETA\s+([^\s]+)/);
 
-        if (percentMatch) status.progress = parseFloat(percentMatch[1]);
-        if (speedMatch) status.speed = speedMatch[1];
-        if (etaMatch) status.eta = etaMatch[1];
+        const updates = { status: 'downloading' };
+        if (percentMatch) updates.progress = parseFloat(percentMatch[1]);
+        if (speedMatch) updates.speed = speedMatch[1];
+        if (etaMatch) updates.eta = etaMatch[1];
         
-        status.status = 'downloading';
+        downloadManager.updateProgress(downloadId, updates);
       }
       
       if (line.includes('[Merger] Merging formats into')) {
           const match = line.match(/"([^"]+)"/);
-          if (match) status.filename = path.basename(match[1]);
+          if (match) {
+            downloadManager.updateProgress(downloadId, { 
+              filename: path.basename(match[1]) 
+            });
+          }
       } else if (line.includes('[download] Destination:')) {
-          status.filename = path.basename(line.split('Destination: ')[1].trim());
+          downloadManager.updateProgress(downloadId, {
+            filename: path.basename(line.split('Destination: ')[1].trim())
+          });
       } else if (line.includes('[download]') && line.includes('has already been downloaded')) {
-          status.progress = 100;
-          status.status = 'finished';
-          status.filename = path.basename(line.split('download] ')[1].split(' has')[0].trim());
+          downloadManager.updateProgress(downloadId, {
+            progress: 100,
+            status: 'finished',
+            filename: path.basename(line.split('download] ')[1].split(' has')[0].trim())
+          });
       }
-      
-      this.downloads.set(downloadId, status);
     });
 
     process.stderr.on('data', (data) => {
@@ -735,39 +753,85 @@ class DownloadService {
     });
 
     process.on('close', (code) => {
-      processes.delete(downloadId);
-      if (code === 0) {
-        status.status = 'finished';
-        status.progress = 100;
-      } else if (status.status !== 'cancelled') {
-        status.status = 'error';
-        status.error = `Process exited with code ${code}`;
+      // Check if this download was intentionally terminated (cancelled/paused)
+      // Use the terminatedIds set which is the source of truth
+      if (downloadManager.isTerminated(downloadId)) {
+        // This was intentionally terminated, don't update status
+        // Notify subscription service about cancelled/paused download
+        try {
+          const subService = require('./subscriptionService');
+          if (typeof subService.decrementActiveDownloads === 'function') {
+            subService.decrementActiveDownloads();
+          }
+        } catch (e) {
+          // Ignore
+        }
+        
+        if (isBatch) {
+          this.activeBatchProcesses--;
+          setTimeout(() => this.processQueue(), 500);
+        }
+        return;
       }
-      this.downloads.set(downloadId, status);
+      
+      const processData = downloadManager.processes.get(downloadId);
+      const downloadStatus = downloadManager.getDownload(downloadId);
+      
+      // Check if cancelled or paused - either from processData or from downloads map
+      const isCancelled = processData?.cancelled || downloadStatus?.status === 'cancelled';
+      const isPaused = processData?.paused || downloadStatus?.status === 'paused';
+      
+      if (isCancelled || isPaused) {
+        // Notify subscription service about cancelled/paused download
+        try {
+          const subService = require('./subscriptionService');
+          if (typeof subService.decrementActiveDownloads === 'function') {
+            subService.decrementActiveDownloads();
+          }
+        } catch (e) {
+          // Ignore
+        }
+        return;
+      }
+
+      if (code === 0) {
+        downloadManager.completeDownload(downloadId, true);
+      } else {
+        downloadManager.completeDownload(downloadId, false, `Process exited with code ${code}`);
+      }
+      
+      // Notify subscription service about completed download
+      try {
+        const subService = require('./subscriptionService');
+        if (typeof subService.decrementActiveDownloads === 'function') {
+          subService.decrementActiveDownloads();
+        }
+      } catch (e) {
+        // Ignore
+      }
       
       if (isBatch) {
         this.activeBatchProcesses--;
-        // Small delay to prevent CPU spikes or rate limiting
         setTimeout(() => this.processQueue(), 500);
       }
     });
   }
 
   retryDownload(id) {
-    const status = this.downloads.get(id);
+    const status = downloadManager.getDownload(id);
     if (!status) return false;
 
-    // Remove old process if exists (shouldn't if it's finished/failed)
-    const oldProcess = processes.get(id);
-    if (oldProcess) oldProcess.kill();
+    // Clear the terminated status when retrying
+    downloadManager.terminatedIds.delete(id);
 
-    // Reset status but keep metadata
-    status.status = 'starting';
-    status.progress = 0;
-    status.speed = '0';
-    status.eta = '0';
-    status.error = null;
-    status.timestamp = new Date().toISOString();
+    downloadManager.updateProgress(id, {
+      status: 'starting',
+      progress: 0,
+      speed: '0',
+      eta: '0',
+      error: null,
+      timestamp: new Date().toISOString()
+    });
 
     const outputDir = path.join(publicDir, status.saveDir);
     const targetThumbDir = path.join(thumbnailsDir, status.saveDir);
@@ -775,31 +839,45 @@ class DownloadService {
     const prefix = status.index !== undefined ? `${status.index.toString().padStart(2, '0')} ` : '';
     const outputTemplate = path.join(outputDir, `${prefix}%(title)s.%(ext)s`);
 
+    // Check if thumbnail already exists anywhere in the system
+    const titleForCheck = status.title || 'video';
+    const thumbnailExists = thumbnailService.doesThumbnailExist({
+      relativePath: path.join(status.saveDir, `${prefix}${titleForCheck}.mp4`)
+    });
+
     const args = [
       '-f', status.formatId,
       '-o', outputTemplate,
       '--no-playlist',
 '--extractor-args', 'youtube:player_client=web,web_safari,web_embedded,web_music,web_creator,mweb,ios,android,android_vr,tv,tv_simply,tv_embedded',
       '--newline',
-      '--write-thumbnail',
-      '--convert-thumbnails', 'jpg',
-      '--output', `thumbnail:${path.join(targetThumbDir, `${prefix}%(title)s`)}`,
+    ];
+
+    if (!thumbnailExists) {
+      args.push('--write-thumbnail');
+      args.push('--convert-thumbnails', 'jpg');
+      args.push('--output', `thumbnail:${path.join(targetThumbDir, `${prefix}%(title)s.%(ext)s`)}`);
+    }
+
+    args.push(
       '--retries', '10',
       '--fragment-retries', '10',
       '--socket-timeout', '30',
       '--no-mtime',
+      '--restrict-filenames',
       status.url
-    ];
+    );
+
 
     if (status.formatId.includes('+')) {
        args.push('--merge-output-format', 'mp4');
     }
 
     if (!status.batchId) {
-      this.startProcess(id, args);
+      this.startProcess(id, args, outputTemplate);
     } else {
-      this.queue.push({ downloadId: id, args, isBatch: true });
-      status.status = 'queued';
+      this.queue.push({ downloadId: id, args, outputTemplate, isBatch: true });
+      downloadManager.updateProgress(id, { status: 'queued' });
       this.processQueue();
     }
     
@@ -807,26 +885,123 @@ class DownloadService {
   }
 
   cancelDownload(id) {
-    const process = processes.get(id);
-    if (process) {
-      process.kill();
-      const status = this.downloads.get(id);
-      if (status) {
-        status.status = 'cancelled';
-        this.downloads.set(id, status);
-      }
-      processes.delete(id);
+    // First check if it's in the queue (not started yet)
+    const queueIndex = this.queue.findIndex(item => item.downloadId === id);
+    if (queueIndex !== -1) {
+      // Remove from queue
+      this.queue.splice(queueIndex, 1);
+      
+      // Also mark as terminated in DownloadManager
+      downloadManager.terminatedIds.add(id);
+      
+      // Update status to cancelled
+      downloadManager.updateProgress(id, {
+        status: 'cancelled',
+        error: 'Download cancelled by user',
+        progress: 0,
+        speed: '0',
+        eta: '0'
+      });
+      
       return true;
     }
-    return false;
+    
+    // If already running, use DownloadManager
+    return downloadManager.cancelDownload(id);
   }
 
+  pauseDownload(id) {
+    // First check if it's in the queue (not started yet)
+    const queueIndex = this.queue.findIndex(item => item.downloadId === id);
+    if (queueIndex !== -1) {
+      // For queued downloads, just cancel them since pausing doesn't make sense
+      // (they haven't started yet)
+      this.queue.splice(queueIndex, 1);
+      
+      // Also mark as terminated in DownloadManager
+      downloadManager.terminatedIds.add(id);
+      
+      // Update status to cancelled (not paused - it was in queue)
+      downloadManager.updateProgress(id, {
+        status: 'cancelled',
+        error: 'Queued download cancelled by user',
+        progress: 0,
+        speed: '0',
+        eta: '0'
+      });
+      
+      return true;
+    }
+    
+    // If already running, use DownloadManager
+    return downloadManager.pauseDownload(id);
+  }
+
+  resumeDownload(id) {
+    return downloadManager.resumeDownload(id);
+  }
+
+  pauseAllDownloads() {
+    // Clear all terminated IDs first to allow fresh pause operations
+    downloadManager.terminatedIds.clear();
+    return downloadManager.pauseAllDownloads();
+  }
+
+  resumeAllDownloads() {
+    // Clear all terminated IDs first to allow fresh resume operations
+    downloadManager.terminatedIds.clear();
+    return downloadManager.resumeAllDownloads();
+  }
+
+  getPausedDownloadsCount() {
+    return downloadManager.getPausedDownloadsCount();
+  }
+
+  getPausedDownloads() {
+    const publicDir = path.join(__dirname, '../public');
+    const pausedDownloadsPath = path.join(publicDir, 'paused_downloads.json');
+    
+    try {
+      if (fs.existsSync(pausedDownloadsPath)) {
+        const content = fs.readFileSync(pausedDownloadsPath, 'utf8');
+        if (content.trim()) {
+          return JSON.parse(content);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to read paused downloads:', e.message);
+    }
+    return [];
+  }
+
+  removeDownload(id) {
+    const download = downloadManager.getDownload(id);
+    if (!download) return false;
+    
+    // Clear terminated status if it was cancelled/paused
+    downloadManager.terminatedIds.delete(id);
+    
+    // Also remove from paused_downloads.json if it was paused
+    downloadManager.removeFromPausedDownloads(id);
+    
+    // Also remove from queue if it's there
+    const queueIndex = this.queue.findIndex(item => item.downloadId === id);
+    if (queueIndex !== -1) {
+      this.queue.splice(queueIndex, 1);
+    }
+    
+    downloadManager.removeDownload(id);
+    return true;
+  }
+
+
+
   getDownloadStatus(id) {
-    return this.downloads.get(id);
+    return downloadManager.getDownload(id);
   }
 
   getAllDownloads() {
-    return Array.from(this.downloads.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return downloadManager.getAllDownloads();
   }
 
   getDirectories() {
@@ -849,4 +1024,3 @@ class DownloadService {
 }
 
 module.exports = new DownloadService();
-

@@ -1,4 +1,5 @@
 const downloadService = require('../services/downloadService');
+const downloadManager = require('../services/DownloadManager');
 
 exports.getDirectories = (req, res) => {
   try {
@@ -134,6 +135,84 @@ exports.cancelDownload = (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+exports.pauseDownload = (req, res) => {
+  try {
+    const { id } = req.params;
+    const success = downloadService.pauseDownload(id);
+    res.json({ success });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.resumeDownload = (req, res) => {
+  try {
+    const { id } = req.params;
+    const success = downloadService.resumeDownload(id);
+    res.json({ success });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.pauseAllDownloads = (req, res) => {
+  try {
+    const result = downloadService.pauseAllDownloads();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.resumeAllDownloads = (req, res) => {
+  try {
+    const result = downloadService.resumeAllDownloads();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getPausedDownloadsCount = (req, res) => {
+  try {
+    const count = downloadService.getPausedDownloadsCount();
+    res.json({ success: true, count });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getPausedDownloads = (req, res) => {
+  try {
+    const pausedDownloads = downloadService.getPausedDownloads();
+    res.json({ success: true, pausedDownloads });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.removeDownload = (req, res) => {
+  try {
+    const { id } = req.params;
+    const success = downloadService.removeDownload(id);
+    res.json({ success });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+
+exports.cleanupOrphanedFiles = (req, res) => {
+  try {
+    const result = downloadManager.cleanupOrphanedFiles();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 exports.getSettings = (req, res) => {
   res.json({ success: true, settings: downloadService.settings });
 };

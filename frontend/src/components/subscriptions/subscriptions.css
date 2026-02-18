@@ -1,0 +1,582 @@
+.subscriptions {
+  padding: 1rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100%;
+}
+
+.subscriptions h1 {
+  margin: 0 0 2rem 0;
+  font-size: 2rem;
+  color: var(--text-primary);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+.subscriptions-header {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.check-all-button {
+  padding: 0.75rem 1.5rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.check-all-button:hover {
+  background: var(--accent-hover);
+}
+
+  .check-all-date-button {
+    padding: 0.75rem 1.5rem;
+    background: var(--btn-trash);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .check-all-date-button:hover {
+    background: var(--btn-trash);
+    opacity: 0.9;
+  }
+
+  .add-button {
+    padding: 0.75rem 1.5rem;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+.add-button:hover {
+  background: var(--accent-hover);
+}
+
+.add-form {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--sidebar-border);
+}
+
+.add-form h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.1);
+}
+
+  .form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.1);
+  }
+
+  .form-group select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .form-group input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .error-message {
+  padding: 0.75rem;
+  background: rgba(243, 139, 168, 0.1);
+  color: var(--btn-delete);
+  border: 1px solid var(--btn-delete);
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.submit-button {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.75rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.submit-button:hover:enabled {
+  background: var(--accent-hover);
+}
+
+.submit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cancel-button:hover:enabled {
+  background: var(--sidebar-hover);
+}
+
+.cancel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.no-subscriptions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.subscriptions-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.subscription-card {
+  background: var(--bg-card);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.subscription-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.subscription-info h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.channel-url {
+  margin: 0 0 1.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.subscription-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-item .label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-item .value {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.detail-item .value.enabled {
+  color: var(--accent);
+}
+
+.detail-item .value.disabled {
+  color: var(--btn-delete);
+}
+
+.detail-item.error {
+  grid-column: 1 / -1;
+}
+
+.detail-item.error .value {
+  color: var(--btn-delete);
+}
+
+.subscription-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.check-button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.75rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.check-button:hover {
+  background: var(--accent-hover);
+}
+
+.toggle-auto-button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.toggle-auto-button:hover {
+  background: var(--sidebar-hover);
+}
+
+.delete-button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.75rem;
+  background: var(--btn-delete);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+  .check-date-button {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.75rem;
+    background: var(--btn-trash);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .check-date-button:hover {
+    background: var(--btn-delete);
+  }
+
+  .quality-select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 4px;
+    padding: 0.25rem;
+    font-size: 0.9rem;
+  }
+
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--overlay-bg);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .modal h2 {
+    margin: 0 0 1.5rem 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  .date-format-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+  }
+
+  .date-inputs-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .date-input {
+    width: 60px;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 4px;
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  .date-input.year-input {
+    width: 80px;
+  }
+
+  .date-separator {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    font-weight: bold;
+  }
+
+  .date-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* Remove number input arrows */
+  .date-input::-webkit-inner-spin-button,
+  .date-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .date-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  /* Shorts Filter UI */
+  .toggle-shorts-btn {
+    align-self: flex-start;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    border: 1px solid var(--sidebar-border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .toggle-shorts-btn.active {
+    background: var(--btn-trash);
+    color: var(--bg-primary);
+    border-color: var(--btn-trash);
+    box-shadow: 0 0 10px rgba(249, 226, 175, 0.2);
+  }
+
+  .toggle-shorts-btn:hover {
+    transform: scale(1.05);
+    border-color: var(--btn-trash);
+  }
+
+  .filtering-toggles {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+
+  .toggle-live-btn {
+    align-self: flex-start;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    border: 1px solid var(--sidebar-border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .toggle-live-btn.active {
+    background: var(--btn-delete);
+    color: var(--bg-primary);
+    border-color: var(--btn-delete);
+    box-shadow: 0 0 10px rgba(243, 139, 168, 0.2);
+  }
+
+  .toggle-live-btn:hover {
+    transform: scale(1.05);
+    border-color: var(--btn-delete);
+  }
+
+  .shorts-checkbox-group {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--text-primary);
+    user-select: none;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+
+  .checkbox-label:hover span {
+    color: var(--accent);
+  }
+
+
+@media (max-width: 768px) {
+  .subscriptions {
+    padding: 0.5rem;
+  }
+
+  .subscriptions h1 {
+    font-size: 1.5rem;
+  }
+
+  .subscriptions-header {
+    flex-direction: column;
+  }
+
+  .check-all-button,
+  .add-button {
+    width: 100%;
+  }
+
+  .subscription-details {
+    grid-template-columns: 1fr;
+  }
+
+  .subscription-actions {
+    flex-direction: column;
+  }
+
+  .check-button,
+  .toggle-auto-button,
+  .delete-button {
+    width: 100%;
+  }
+}

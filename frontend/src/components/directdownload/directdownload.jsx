@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { API_BASE_URL } from '../../config'
 import { useDownload } from '../../hooks/useDownload'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Download,
   Search,
@@ -13,7 +14,11 @@ import {
 import './directdownload.css'
 
 const DirectDownload = () => {
-  const [url, setUrl] = useState('')
+  const navigate = useNavigate()
+  const { startDirectDownload, downloads, directVideoData, setDirectVideoData } = useDownload()
+
+  // Initialize from Redux or defaults
+  const [url, setUrl] = useState(directVideoData?.url || '')
   const [directories, setDirectories] = useState(['Not Watched'])
   const [selectedDir, setSelectedDir] = useState('Not Watched')
 
@@ -21,18 +26,31 @@ const DirectDownload = () => {
   const [startingDirect, setStartingDirect] = useState(false)
   const [startingPlanned, setStartingPlanned] = useState(false)
 
-  const [metadata, setMetadata] = useState(null)
-  const [qualities, setQualities] = useState([])
-  const [audioLanguages, setAudioLanguages] = useState([])
-  const [selectedQuality, setSelectedQuality] = useState(null)
-  const [selectedLanguage, setSelectedLanguage] = useState(null)
+  const [metadata, setMetadata] = useState(directVideoData?.metadata || null)
+  const [qualities, setQualities] = useState(directVideoData?.qualities || [])
+  const [audioLanguages, setAudioLanguages] = useState(directVideoData?.audioLanguages || [])
+  const [selectedQuality, setSelectedQuality] = useState(directVideoData?.selectedQuality || null)
+  const [selectedLanguage, setSelectedLanguage] = useState(directVideoData?.selectedLanguage || null)
 
   const [error, setError] = useState(null)
 
-  const { startDirectDownload, downloads } = useDownload()
+  // Duplicate Check
+  const isDownloading = downloads.some(d => 
+    (d.url === url || (metadata && d.title === metadata.title)) && 
+    ['downloading', 'queued', 'starting'].includes(d.status)
+  )
 
   useEffect(() => {
     fetchDirectories()
+    // Restore
+    if (directVideoData) {
+        if (!url) setUrl(directVideoData.url)
+        if (!metadata) setMetadata(directVideoData.metadata)
+        if (!qualities.length) setQualities(directVideoData.qualities)
+        if (!audioLanguages.length) setAudioLanguages(directVideoData.audioLanguages)
+        if (!selectedQuality) setSelectedQuality(directVideoData.selectedQuality)
+        if (!selectedLanguage) setSelectedLanguage(directVideoData.selectedLanguage)
+    }
   }, [])
 
   const fetchDirectories = async () => {
@@ -73,6 +91,8 @@ const DirectDownload = () => {
       })
       if (!result.success) {
         setError(result.error || 'Failed to start direct download')
+      } else {
+        navigate('/download/progress')
       }
     } finally {
       setStartingDirect(false)
@@ -118,6 +138,17 @@ const DirectDownload = () => {
           )
           if (lang) setSelectedLanguage(lang)
         }
+
+        // Persist
+        setDirectVideoData({
+            url,
+            metadata: data.metadata,
+            qualities: data.qualities || [],
+            audioLanguages: data.audioLanguages || [],
+            selectedQuality: null, // Reset on new fetch
+            selectedLanguage: null 
+        })
+
       } else {
         setError(data.error || 'Failed to fetch video details')
       }
@@ -148,16 +179,18 @@ const DirectDownload = () => {
 
       if (!result.success) {
         setError(result.error || 'Failed to start download')
+      } else {
+        navigate('/download/progress')
       }
     } finally {
       setStartingPlanned(false)
     }
   }
 
-  const canDirectDownload = url && selectedDir && !startingDirect && !loadingMeta
+  const canDirectDownload = url && selectedDir && !startingDirect && !loadingMeta && !isDownloading
   const canFetchDetails = url && !loadingMeta
   const canStartPlanned =
-    url && selectedDir && selectedQuality && selectedLanguage && !startingPlanned
+    url && selectedDir && selectedQuality && selectedLanguage && !startingPlanned && !isDownloading
 
   return (
     <div className="direct-download-container">
@@ -281,7 +314,12 @@ const DirectDownload = () => {
                     className={`direct-pill ${
                       selectedQuality?.key === q.key ? 'active' : ''
                     }`}
-                    onClick={() => setSelectedQuality(q)}
+                    onClick={() => {
+                        setSelectedQuality(q)
+                        setDirectVideoData({
+                            url, metadata, qualities, audioLanguages, selectedLanguage, selectedQuality: q
+                        })
+                    }}
                   >
                     {q.label}
                   </button>
@@ -298,7 +336,12 @@ const DirectDownload = () => {
                     className={`direct-pill ${
                       selectedLanguage?.code === lang.code ? 'active' : ''
                     }`}
-                    onClick={() => setSelectedLanguage(lang)}
+                    onClick={() => {
+                        setSelectedLanguage(lang)
+                        setDirectVideoData({
+                            url, metadata, qualities, audioLanguages, selectedQuality, selectedLanguage: lang
+                        })
+                    }}
                   >
                     {lang.label}
                   </button>

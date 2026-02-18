@@ -11,7 +11,9 @@ exports.getAllProgress = () => {
   try {
     if (fs.existsSync(progressFile)) {
       const data = fs.readFileSync(progressFile, 'utf8');
-      return JSON.parse(data);
+      if (data.trim()) {
+        return JSON.parse(data);
+      }
     }
   } catch (error) {
     console.error('Error reading progress file:', error);
@@ -261,9 +263,9 @@ exports.generateRandomDuration = () => {
 
 // Format upload date
 exports.formatUploadDate = (date) => {
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  });
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
 };

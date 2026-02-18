@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { API_BASE_URL } from '../../config'
+import { formatDate } from '../../utils/format'
 import { useDownload } from '../../hooks/useDownload'
 import { 
   Download, 
@@ -22,12 +24,18 @@ import {
 import './advancedownload.css'
 
 const AdvanceDownload = () => {
-  const [url, setUrl] = useState('')
+  const navigate = useNavigate()
+  const { startDownload, downloads, simpleVideoData, setSimpleVideoData } = useDownload()
+
+  // Initialize from Redux or defaults
+  const [url, setUrl] = useState(simpleVideoData?.url || '')
   const [loading, setLoading] = useState(false)
-  const [metadata, setMetadata] = useState(null)
-  const [formats, setFormats] = useState(null)
-  const [activeTab, setActiveTab] = useState('video_audio') // video_audio, video_only, audio_only, merge
+  const [metadata, setMetadata] = useState(simpleVideoData?.metadata || null)
+  const [formats, setFormats] = useState(simpleVideoData?.formats || null)
+  
+  const [activeTab, setActiveTab] = useState('video_audio') 
   const [selectedFormat, setSelectedFormat] = useState(null)
+  
   const [directories, setDirectories] = useState(['Not Watched'])
   const [selectedDir, setSelectedDir] = useState('Not Watched')
   const [newDirName, setNewDirName] = useState('')
@@ -38,10 +46,26 @@ const AdvanceDownload = () => {
   const [selectedVideoOnly, setSelectedVideoOnly] = useState(null)
   const [selectedAudioOnly, setSelectedAudioOnly] = useState(null)
 
-  const { startDownload, downloads } = useDownload()
+  // Duplicate Check
+  const isDownloading = downloads.some(d => 
+    (d.url === url || (metadata && d.title === metadata.title)) && 
+    ['downloading', 'queued', 'starting'].includes(d.status)
+  )
 
   useEffect(() => {
     fetchDirectories()
+    // Restore
+    if (simpleVideoData) {
+        if (!url) setUrl(simpleVideoData.url)
+        if (!metadata) setMetadata(simpleVideoData.metadata)
+        if (!formats) {
+            setFormats(simpleVideoData.formats)
+            // Auto-select tab if formats just restored
+            if (simpleVideoData.formats?.video_audio?.length > 0) setActiveTab('video_audio')
+            else if (simpleVideoData.formats?.video_only?.length > 0) setActiveTab('video_only')
+            else setActiveTab('audio_only')
+        }
+    }
   }, [])
 
   const fetchDirectories = async () => {
@@ -81,6 +105,12 @@ const AdvanceDownload = () => {
         if (data.formats.video_audio.length > 0) setActiveTab('video_audio')
         else if (data.formats.video_only.length > 0) setActiveTab('video_only')
         else setActiveTab('audio_only')
+
+        setSimpleVideoData({
+            url, 
+            metadata: data.metadata,
+            formats: data.formats
+        })
       } else {
         setError(data.error || 'Failed to fetch formats')
       }
@@ -121,6 +151,7 @@ const AdvanceDownload = () => {
         setShowNewDirInput(false)
         setNewDirName('')
       }
+      navigate('/download/progress')
     }
   }
 
@@ -195,7 +226,7 @@ const AdvanceDownload = () => {
               </div>
               <div className="stat-item">
                 <Calendar size={14} />
-                {metadata.upload_date}
+                {formatDate(metadata.upload_date)}
               </div>
               <div className="stat-item">
                 <Languages size={14} />
@@ -355,6 +386,9 @@ const AdvanceDownload = () => {
           <button 
             className="download-btn"
             onClick={handleDownload}
+            disabled={isDownloading}
+            style={isDownloading ? { opacity: 0.5, cursor: 'not-allowed', backgroundColor: '#555' } : {}}
+            title={isDownloading ? "Download in progress" : "Download Video"}
           >
             <Download size={20} />
             Download

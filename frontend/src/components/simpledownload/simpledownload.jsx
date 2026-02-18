@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { API_BASE_URL } from '../../config'
+import { formatDate } from '../../utils/format'
 import { useDownload } from '../../hooks/useDownload'
 import { 
   Download, 
@@ -18,22 +20,38 @@ import {
 import './simpledownload.css'
 
 const SimpleDownload = () => {
-  const [url, setUrl] = useState('')
+  const navigate = useNavigate()
+  const { startDownload, downloads, simpleVideoData, setSimpleVideoData } = useDownload()
+
+  // Initialize from Redux or defaults
+  const [url, setUrl] = useState(simpleVideoData?.url || '')
   const [loading, setLoading] = useState(false)
-  const [metadata, setMetadata] = useState(null)
-  const [formats, setFormats] = useState(null)
-  const [selectedQuality, setSelectedQuality] = useState(null)
+  const [metadata, setMetadata] = useState(simpleVideoData?.metadata || null)
+  const [formats, setFormats] = useState(simpleVideoData?.formats || null)
+  const [selectedQuality, setSelectedQuality] = useState(simpleVideoData?.selectedQuality || null)
+  
   const [directories, setDirectories] = useState(['Not Watched'])
   const [selectedDir, setSelectedDir] = useState('Not Watched')
   const [newDirName, setNewDirName] = useState('')
   const [showNewDirInput, setShowNewDirInput] = useState(false)
   const [error, setError] = useState(null)
 
-  const { startDownload, downloads } = useDownload()
+  // Check if this video is already downloading
+  const isDownloading = downloads.some(d => 
+    (d.url === url || (metadata && d.title === metadata.title)) && 
+    ['downloading', 'queued', 'starting'].includes(d.status)
+  )
 
   useEffect(() => {
     fetchDirectories()
-  }, [])
+    // Restore state from Redux if available
+    if (simpleVideoData) { 
+        if (!url) setUrl(simpleVideoData.url)
+        if (!metadata) setMetadata(simpleVideoData.metadata)
+        if (!formats) setFormats(simpleVideoData.formats)
+        if (!selectedQuality) setSelectedQuality(simpleVideoData.selectedQuality)
+    }
+  }, []) // On mount
 
   const fetchDirectories = async () => {
     try {
@@ -67,10 +85,20 @@ const SimpleDownload = () => {
         setMetadata(data.metadata)
         setFormats(data.formats)
         
-        // Auto-select Best quality (first video_only format if available)
+        let initialQuality = null
         if (data.formats.video_only && data.formats.video_only.length > 0) {
-          setSelectedQuality(data.formats.video_only[0].resolution)
+          initialQuality = data.formats.video_only[0].resolution
+          setSelectedQuality(initialQuality)
         }
+        
+        // Persist to Redux
+        setSimpleVideoData({
+            url,
+            metadata: data.metadata,
+            formats: data.formats,
+            selectedQuality: initialQuality
+        })
+
       } else {
         setError(data.error || 'Failed to fetch formats')
       }
@@ -81,10 +109,28 @@ const SimpleDownload = () => {
     }
   }
 
+  const handleQualityChange = (e) => {
+      const quality = e.target.value
+      setSelectedQuality(quality)
+      if (formats && metadata) {
+          setSimpleVideoData({
+              url,
+              metadata,
+              formats,
+              selectedQuality: quality
+          })
+      }
+  }
+
   const handleDownload = async () => {
     if (!selectedQuality) {
       setError('Please select a quality')
       return
+    }
+
+    if (isDownloading) {
+        setError('This video is already in the download queue!')
+        return
     }
 
     // Find video format with selected quality
@@ -117,6 +163,7 @@ const SimpleDownload = () => {
         setShowNewDirInput(false)
         setNewDirName('')
       }
+      navigate('/download/progress')
     }
   }
 
@@ -232,7 +279,7 @@ const SimpleDownload = () => {
               </div>
               <div className="stat-item">
                 <Calendar size={14} />
-                {metadata.upload_date}
+                {formatDate(metadata.upload_date)}
               </div>
               <div className="stat-item">
                 <Languages size={14} />
@@ -254,7 +301,7 @@ const SimpleDownload = () => {
             <select 
               className="quality-dropdown"
               value={selectedQuality || ''}
-              onChange={(e) => setSelectedQuality(e.target.value)}
+              onChange={handleQualityChange}
             >
               {qualityOptions.map(quality => {
                 const size = getSizeForQuality(quality)
@@ -324,6 +371,9 @@ const SimpleDownload = () => {
           <button 
             className="download-btn"
             onClick={handleDownload}
+            disabled={isDownloading}
+            style={isDownloading ? { opacity: 0.5, cursor: 'not-allowed', backgroundColor: '#555' } : {}}
+            title={isDownloading ? "Download in progress" : "Download Video"}
           >
             <Download size={20} />
             Download
