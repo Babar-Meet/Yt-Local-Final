@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-import { formatFileSize } from '../utils/format';
+const { formatFileSize } = require('../utils/format');
 const ffmpeg = require('fluent-ffmpeg');
 
 const thumbnailsDir = path.join(__dirname, '../public/thumbnails');
